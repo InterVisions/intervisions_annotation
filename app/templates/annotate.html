@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}Annotate: {{ task.term }} - InterVisions{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+        <a href="{{ url_for('annotator_dashboard') }}" style="color:var(--blue);font-size:13px;text-decoration:none">← Dashboard</a>
+        <h2 style="margin:4px 0 0">Task: "{{ task.term }}"</h2>
+        <div style="font-size:13px;color:var(--gray-500);margin-top:2px">
+            {{ task.campaign_id }} · {{ task.campaign_name }} ·
+            <span id="imageCount">{{ annotation_count }}</span>/{{ task.target_images }} images
+        </div>
+    </div>
+    <div style="display:flex;gap:8px">
+        <div class="card" style="padding:8px 14px;margin:0;font-size:12px">
+            <span style="color:var(--gray-500)">Gender: </span>
+            <span id="statGender" style="font-weight:600">
+                {% for i in range(5) %}{{ gender_short[i] }}:{{ stats.gender.counts[i] if stats.gender.counts else 0 }}{% if not loop.last %} {% endif %}{% endfor %}
+            </span>
+        </div>
+        <div class="card" style="padding:8px 14px;margin:0;font-size:12px">
+            <span style="color:var(--gray-500)">MST: </span>
+            <span id="statMST" style="font-weight:600">{{ stats.mst_spread }}/10</span>
+        </div>
+        {% if task.status == 'in_progress' %}
+        <button class="btn btn-success btn-sm" onclick="completeTask()">Mark Complete</button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="two-col">
+    <!-- LEFT: Image input + preview + recent -->
+    <div>
+        <div class="card">
+            <label class="form-label">Image URL</label>
+            <div style="display:flex;gap:8px;margin-top:4px">
+                <input type="url" id="imageUrl" class="form-control" placeholder="https://unsplash.com/photos/...">
+                <button class="btn btn-primary" onclick="loadImage()" style="white-space:nowrap">Load</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="image-preview" id="imagePreview">
+                <span style="color:#ccc;font-size:14px">Enter URL and click Load</span>
+            </div>
+            <div class="image-meta" id="imageMeta" style="display:none"></div>
+            <div id="imageSource" style="font-size:11px;color:#aaa;margin-top:6px"></div>
+        </div>
+
+        <div class="card">
+            <h4 style="font-size:13px;color:var(--gray-600);margin-bottom:8px">
+                Recent (<span id="recentCount">{{ annotation_count }}</span>)
+            </h4>
+            <div style="overflow-x:auto">
+                <table class="ann-table" id="recentTable">
+                    <thead><tr>
+                        <th>#</th><th>Gender</th><th>Age</th><th>MST</th><th>Lic.</th><th>Suit.</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for a in annotations[:10] %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            {% if a.perceived_gender is not none and a.perceived_gender >= 0 and a.perceived_gender <= 4 %}
+                            <span class="gender-dot" style="background:{{ gender_colors[a.perceived_gender] }}"></span>
+                            {{ gender_short[a.perceived_gender] }}
+                            {% else %}N/D{% endif %}
+                        </td>
+                        <td>{{ (a.perceived_age or '').split(' ')[0] }}</td>
+                        <td>
+                            {% if a.perceived_skin_tone and a.perceived_skin_tone > 0 %}
+                            <span class="mst-dot" style="background:{{ mst_colors[a.perceived_skin_tone - 1] }}"></span>
+                            {{ a.perceived_skin_tone }}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>{{ a.licence }}</td>
+                        <td style="color:{% if a.suitability == 'Suitable' %}var(--green){% else %}var(--orange){% endif %}">
+                            {% if a.suitability == 'Suitable' %}✓{% else %}~{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: Annotation form -->
+    <div>
+        <div class="card" id="annotationForm">
+            <h3 style="font-size:15px;margin-bottom:16px">Annotation</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Licence</label>
+                    <select class="form-control" id="fLicence">
+                        <option selected>CC-BY</option>
+                        <option>CC-BY-SA</option>
+                        <option>CC0 / Public Domain</option>
+                        <option>Unsplash</option>
+                        <option>Pexels</option>
+                        <option>URL only (©)</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Concept Match</label>
+                    <select class="form-control" id="fConceptMatch">
+                        <option selected>Yes</option>
+                        <option>Partially</option>
+                        <option>No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Suitability</label>
+                    <select class="form-control" id="fSuitability">
+                        <option selected>Suitable</option>
+                        <option>Marginally suitable</option>
+                        <option>Not suitable</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">People Visible</label>
+                <div class="people-selector">
+                    <button type="button" class="people-btn" data-value="0" onclick="setPeople('0')">0</button>
+                    <button type="button" class="people-btn active" data-value="1" onclick="setPeople('1')">1</button>
+                    <button type="button" class="people-btn" data-value="2" onclick="setPeople('2')">2</button>
+                    <button type="button" class="people-btn" data-value="3+" onclick="setPeople('3+')">3+</button>
+                </div>
+            </div>
+
+            <div id="demographicFields">
+                <!-- Gender -->
+                <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
+                    <label class="form-label">Perceived Gender <span class="form-hint">(5-step scale)</span></label>
+                    <div class="gender-selector">
+                        <button type="button" class="gender-btn" data-value="0" onclick="setGender(0)">Fem</button>
+                        <button type="button" class="gender-btn" data-value="1" onclick="setGender(1)">M.Fem</button>
+                        <button type="button" class="gender-btn active" data-value="2" onclick="setGender(2)">NB</button>
+                        <button type="button" class="gender-btn" data-value="3" onclick="setGender(3)">M.Masc</button>
+                        <button type="button" class="gender-btn" data-value="4" onclick="setGender(4)">Masc</button>
+                    </div>
+                    <div class="gender-label" id="genderLabel">Non-binary / ambiguous</div>
+                    <button type="button" class="gender-na-btn" id="genderNaBtn" onclick="setGender(-1)">Cannot determine</button>
+                </div>
+
+                <!-- Age -->
+                <div class="form-group">
+                    <label class="form-label">Perceived Age</label>
+                    <select class="form-control" id="fAge">
+                        <option value="">— Select —</option>
+                        <option>Child (0-12)</option>
+                        <option>Adolescent (13-17)</option>
+                        <option>Young adult (18-30)</option>
+                        <option>Middle-aged (31-60)</option>
+                        <option>Older adult (60+)</option>
+                        <option>Cannot determine</option>
+                    </select>
+                </div>
+
+                <!-- Skin Tone -->
+                <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
+                    <label class="form-label">
+                        Perceived Skin Tone <span class="form-hint">(Monk Scale)</span>
+                        <button type="button" class="mst-ref-toggle" onclick="toggleMSTRef()">Reference</button>
+                    </label>
+                    <div class="mst-selector">
+                        {% for color in mst_colors %}
+                        <button type="button" class="mst-btn" data-value="{{ loop.index }}"
+                            style="background:{{ color }}" title="MST {{ loop.index }}"
+                            onclick="setMST({{ loop.index }})"></button>
+                        {% endfor %}
+                        <button type="button" class="mst-na-btn" onclick="setMST(0)">?</button>
+                    </div>
+                    <div class="mst-label" id="mstLabel">Select a tone</div>
+                    <div class="mst-reference" id="mstRef">
+                        <div style="font-weight:600;margin-bottom:8px;font-size:12px">Monk Skin Tone Scale Reference</div>
+                        <div class="mst-ref-grid">
+                            {% for color in mst_colors %}
+                            <div style="text-align:center">
+                                <div class="mst-ref-swatch" style="background:{{ color }}"></div>
+                                <div class="mst-ref-label">MST {{ loop.index }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <p style="margin-top:8px;font-size:11px;color:var(--gray-500)">
+                            Compare skin tone with the scale. Select closest match or "?" if not visible.
+                        </p>
+                    </div>
+                </div>
+
+                {% if 'perceived_disability' in extra_fields %}
+                <div class="form-group">
+                    <label class="form-label">Perceived Disability</label>
+                    <select class="form-control" id="fDisability">
+                        <option value="">— Select —</option>
+                        <option>No visible disability</option>
+                        <option>Mobility aid</option>
+                        <option>Sensory aid</option>
+                        <option>Other visible disability</option>
+                        <option>Cannot determine</option>
+                    </select>
+                </div>
+                {% endif %}
+
+                {% if 'body_type_notes' in extra_fields %}
+                <div class="form-group">
+                    <label class="form-label">Body Type Notes</label>
+                    <input class="form-control" id="fBodyType" placeholder="Optional observations...">
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Intersectional Notes</label>
+                <textarea class="form-control" id="fNotes" rows="2"
+                    placeholder="Observations about representation, stereotypes..."></textarea>
+            </div>
+
+            <button class="btn btn-success" style="width:100%;padding:12px;font-size:14px" onclick="saveAnnotation()">
+                Save & Next
+            </button>
+            <div id="saveStatus" style="text-align:center;font-size:12px;margin-top:8px"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TASK_ID = {{ task.id }};
+const GENDER_LABELS = {{ gender_labels | tojson }};
+const GENDER_SHORT = {{ gender_short | tojson }};
+const GENDER_COLORS = {{ gender_colors | tojson }};
+const MST_COLORS = {{ mst_colors | tojson }};
+
+let formState = {
+    gender: 2,
+    skinTone: 0,
+    numPeople: '1',
+};
+
+function setPeople(val) {
+    formState.numPeople = val;
+    document.querySelectorAll('.people-btn').forEach(b => b.classList.toggle('active', b.dataset.value === val));
+    document.getElementById('demographicFields').style.display = val === '0' ? 'none' : 'block';
+}
+
+function setGender(val) {
+    formState.gender = val;
+    document.querySelectorAll('.gender-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.value) === val);
+    });
+    document.getElementById('genderNaBtn').classList.toggle('active', val === -1);
+    document.getElementById('genderLabel').textContent =
+        val === -1 ? 'Cannot determine' : GENDER_LABELS[val] || '';
+}
+
+function setMST(val) {
+    formState.skinTone = val;
+    document.querySelectorAll('.mst-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.value) === val);
+    });
+    document.getElementById('mstLabel').textContent =
+        val === 0 ? 'Cannot determine' : 'Selected: MST ' + val;
+}
+
+function toggleMSTRef() {
+    document.getElementById('mstRef').classList.toggle('show');
+}
+
+function loadImage() {
+    const url = document.getElementById('imageUrl').value.trim();
+    if (!url) return;
+    const preview = document.getElementById('imagePreview');
+    const meta = document.getElementById('imageMeta');
+    const source = document.getElementById('imageSource');
+
+    preview.innerHTML = '<span style="color:#999">Loading...</span>';
+    const img = new Image();
+    img.onload = function() {
+        preview.innerHTML = '';
+        preview.appendChild(img);
+        meta.style.display = 'flex';
+        meta.innerHTML = `
+            <span><strong>Resolution:</strong> ${img.naturalWidth} × ${img.naturalHeight} px</span>
+            <span><strong>Aspect:</strong> ${(img.naturalWidth / img.naturalHeight).toFixed(2)}</span>
+        `;
+        source.textContent = 'Source: ' + url;
+    };
+    img.onerror = function() {
+        preview.innerHTML = '<span style="color:#e74c3c">Failed to load image. The URL may not allow direct access. The image will still be downloaded server-side when you save.</span>';
+        meta.style.display = 'none';
+        source.textContent = 'Source: ' + url;
+    };
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '400px';
+    img.style.objectFit = 'contain';
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+}
+
+async function saveAnnotation() {
+    const url = document.getElementById('imageUrl').value.trim();
+    if (!url) {
+        document.getElementById('saveStatus').innerHTML =
+            '<span style="color:#e74c3c">Please enter an image URL</span>';
+        return;
+    }
+
+    const data = {
+        image_url: url,
+        licence: document.getElementById('fLicence').value,
+        concept_match: document.getElementById('fConceptMatch').value,
+        num_people: formState.numPeople,
+        perceived_gender: formState.gender,
+        perceived_age: document.getElementById('fAge').value || null,
+        perceived_skin_tone: formState.skinTone,
+        suitability: document.getElementById('fSuitability').value,
+        intersectional_notes: document.getElementById('fNotes').value || null,
+    };
+
+    const disField = document.getElementById('fDisability');
+    if (disField) data.perceived_disability = disField.value || null;
+    const bodyField = document.getElementById('fBodyType');
+    if (bodyField) data.body_type_notes = bodyField.value || null;
+
+    document.getElementById('saveStatus').innerHTML =
+        '<span style="color:var(--blue)">Saving...</span>';
+
+    try {
+        const resp = await fetch(`/api/annotate/${TASK_ID}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            document.getElementById('saveStatus').innerHTML =
+                '<span style="color:var(--green)">✓ Saved!</span>';
+            document.getElementById('imageCount').textContent = result.annotation_count;
+            document.getElementById('recentCount').textContent = result.annotation_count;
+
+            // Update stats
+            if (result.stats) {
+                const s = result.stats;
+                const gStr = GENDER_SHORT.map((l, i) => l + ':' + (s.gender.counts[i] || 0)).join(' ');
+                document.getElementById('statGender').textContent = gStr;
+                document.getElementById('statMST').textContent = s.mst_spread + '/10';
+            }
+
+            // Add row to recent table
+            const tbody = document.querySelector('#recentTable tbody');
+            const row = document.createElement('tr');
+            const gVal = data.perceived_gender;
+            const gColor = gVal >= 0 && gVal <= 4 ? GENDER_COLORS[gVal] : '#ccc';
+            const gLabel = gVal >= 0 && gVal <= 4 ? GENDER_SHORT[gVal] : 'N/D';
+            const stVal = data.perceived_skin_tone;
+            const stColor = stVal > 0 ? MST_COLORS[stVal - 1] : '#ccc';
+            const suit = data.suitability === 'Suitable' ? '✓' : '~';
+            const suitColor = data.suitability === 'Suitable' ? 'var(--green)' : 'var(--orange)';
+            row.innerHTML = `
+                <td>${result.annotation_count}</td>
+                <td><span class="gender-dot" style="background:${gColor}"></span>${gLabel}</td>
+                <td>${(data.perceived_age || '').split(' ')[0]}</td>
+                <td>${stVal > 0 ? `<span class="mst-dot" style="background:${stColor}"></span>${stVal}` : '—'}</td>
+                <td>${data.licence}</td>
+                <td style="color:${suitColor}">${suit}</td>
+            `;
+            tbody.insertBefore(row, tbody.firstChild);
+
+            // Reset for next
+            document.getElementById('imageUrl').value = '';
+            document.getElementById('imagePreview').innerHTML =
+                '<span style="color:#ccc;font-size:14px">Enter URL and click Load</span>';
+            document.getElementById('imageMeta').style.display = 'none';
+            document.getElementById('imageSource').textContent = '';
+            document.getElementById('fNotes').value = '';
+            document.getElementById('imageUrl').focus();
+
+            setTimeout(() => {
+                document.getElementById('saveStatus').innerHTML = '';
+            }, 2000);
+        } else {
+            document.getElementById('saveStatus').innerHTML =
+                `<span style="color:#e74c3c">Error: ${result.error}</span>`;
+        }
+    } catch (e) {
+        document.getElementById('saveStatus').innerHTML =
+            `<span style="color:#e74c3c">Network error: ${e.message}</span>`;
+    }
+}
+
+async function completeTask() {
+    if (!confirm('Mark this task as completed?')) return;
+    await fetch(`/api/task/${TASK_ID}/complete`, { method: 'POST' });
+    window.location.href = '{{ url_for("annotator_dashboard") }}';
+}
+</script>
+{% endblock %}

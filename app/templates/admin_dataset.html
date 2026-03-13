@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Admin - Dataset Overview{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px">Dataset by Campaign</h2>
+
+<div class="card">
+    <table class="table">
+        <thead><tr>
+            <th>Campaign</th><th>Dimension</th><th>Terms</th><th>Active</th><th>Done</th><th>Images</th>
+        </tr></thead>
+        <tbody>
+        {% for c in campaigns %}
+        <tr>
+            <td style="font-weight:500">{{ c.id }}. {{ c.name }}</td>
+            <td>
+                {% for d in c.dimension.split(',') %}
+                <span class="dim-badge dim-{{ d.strip().lower() }}">{{ d.strip() }}</span>
+                {% endfor %}
+            </td>
+            <td>{{ c.total_terms }}</td>
+            <td style="color:{% if c.active_terms > 0 %}var(--orange){% else %}#ccc{% endif %}">{{ c.active_terms }}</td>
+            <td style="color:{% if c.completed_terms > 0 %}var(--green){% else %}#ccc{% endif %}">{{ c.completed_terms }}</td>
+            <td style="font-weight:600">{{ c.total_images }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:16px;padding:12px;background:var(--gray-100);border-radius:8px;font-size:13px;color:var(--gray-600)">
+        <strong>Total:</strong>
+        {{ totals.total_images }} images ·
+        {{ totals.active_terms }} terms in progress ·
+        {{ totals.completed_terms }} completed ·
+        {{ totals.total_terms - totals.active_terms - totals.completed_terms }} remaining
+    </div>
+</div>
+{% endblock %}

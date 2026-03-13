@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Admin - Settings{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px">Settings</h2>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:16px">Annotation Targets</h3>
+
+    <form method="POST">
+        <input type="hidden" name="old_default" value="{{ default_target }}">
+
+        <div class="form-group">
+            <label class="form-label">Default minimum images per term</label>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+                <input type="number" class="form-control" name="default_target_images"
+                    value="{{ default_target }}" min="1" max="500"
+                    style="width:120px">
+                <span style="font-size:13px;color:var(--gray-500)">images</span>
+            </div>
+            <p style="font-size:12px;color:var(--gray-500);margin-top:6px">
+                This value is used as the default target when creating new terms. Currently: <strong>{{ default_target }}</strong>.
+            </p>
+        </div>
+
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="apply_to_existing" value="1">
+                Also update all existing terms that currently have the old default ({{ default_target }}) to the new value
+            </label>
+            <p style="font-size:12px;color:var(--gray-500);margin-top:4px">
+                This only changes terms still set to {{ default_target }}. Terms with custom targets are not affected.
+            </p>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Platform Overview</h3>
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px">
+        <div style="padding:16px;background:var(--gray-100);border-radius:8px;text-align:center">
+            <div style="font-size:28px;font-weight:700;color:var(--blue)">{{ total_campaigns }}</div>
+            <div style="font-size:12px;color:var(--gray-500)">Campaigns</div>
+        </div>
+        <div style="padding:16px;background:var(--gray-100);border-radius:8px;text-align:center">
+            <div style="font-size:28px;font-weight:700;color:var(--blue)">{{ total_terms }}</div>
+            <div style="font-size:12px;color:var(--gray-500)">Terms</div>
+        </div>
+        <div style="padding:16px;background:var(--gray-100);border-radius:8px;text-align:center">
+            <div style="font-size:28px;font-weight:700;color:var(--blue)">{{ default_target }}</div>
+            <div style="font-size:12px;color:var(--gray-500)">Default target / term</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:8px">Database</h3>
+    <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">
+        To backup the database, download the full export as CSV:
+    </p>
+    <a href="{{ url_for('api_export_csv') }}" class="btn btn-secondary">Download annotations CSV</a>
+</div>
+{% endblock %}

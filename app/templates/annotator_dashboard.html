@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - InterVisions{% endblock %}
+
+{% block content %}
+<div class="stats-row">
+    <div class="stat-card orange">
+        <div class="stat-value">{{ open_count }}</div>
+        <div class="stat-label">Open tasks</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-value">{{ tasks|selectattr('status', 'equalto', 'completed')|list|length }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-value">{{ total_images }}</div>
+        <div class="stat-label">Images annotated</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ max_open }}</div>
+        <div class="stat-label">Max open tasks</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">My Open Tasks</h3>
+        {% if open_count < max_open %}
+        <a href="{{ url_for('new_task') }}" class="btn btn-primary">+ New Task</a>
+        {% else %}
+        <button class="btn btn-primary" disabled>+ New Task (max reached)</button>
+        {% endif %}
+    </div>
+    {% for task in tasks if task.status == 'in_progress' %}
+    <div class="task-item">
+        <div>
+            <div class="task-term">"{{ task.term }}"</div>
+            <div class="task-meta">
+                {{ task.campaign_id }} · {{ task.campaign_name }} ·
+                {% for d in task.campaign_dim.split(',') %}
+                <span class="dim-badge dim-{{ d.strip().lower() }}">{{ d.strip() }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <div class="task-progress">
+                <div class="task-progress-text">{{ task.image_count }}/{{ task.target_images }}</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width:{{ (task.image_count / task.target_images * 100) | int }}%"></div>
+                </div>
+            </div>
+            <a href="{{ url_for('annotate', task_id=task.id) }}" class="btn btn-primary btn-sm">Continue →</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if tasks|selectattr('status', 'equalto', 'completed')|list %}
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Completed Tasks</h3>
+    {% for task in tasks if task.status == 'completed' %}
+    <div class="task-item completed">
+        <div>
+            <div class="task-term">"{{ task.term }}" ✓</div>
+            <div class="task-meta">{{ task.campaign_id }} · {{ task.image_count }} images</div>
+        </div>
+        <span style="color:var(--green);font-size:12px;font-weight:600">Completed</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

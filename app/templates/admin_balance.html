@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Admin - Balancing{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:12px">Balancing</h2>
+
+<div class="term-filter">
+    <button class="term-filter-btn active" data-term="" onclick="filterTerm(this, '')">Global</button>
+    {% for t in active_terms %}
+    <button class="term-filter-btn" data-term="{{ t.id }}" onclick="filterTerm(this, '{{ t.id }}')">{{ t.term }}</button>
+    {% endfor %}
+</div>
+
+<div id="termInfo" style="display:none;margin-bottom:16px;padding:8px 12px;background:#fffde7;border-radius:8px;border:1px solid #fff9c4;font-size:13px"></div>
+
+<div class="chart-grid" id="charts">
+    <!-- Gender -->
+    <div class="chart-card">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+            <span class="chart-title">Gender</span>
+            <span style="font-size:11px;color:var(--gray-500)" id="genderN"></span>
+        </div>
+        <div id="genderChart"></div>
+        <div id="genderWarning" class="chart-warning" style="display:none"></div>
+    </div>
+
+    <!-- Skin Tone -->
+    <div class="chart-card">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+            <span class="chart-title">Skin Tone (MST)</span>
+            <span style="font-size:11px;color:var(--gray-500)" id="skinN"></span>
+        </div>
+        <div class="mst-bars" id="skinChart"></div>
+        <div id="skinWarning" class="chart-warning" style="display:none"></div>
+    </div>
+
+    <!-- Age -->
+    <div class="chart-card">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+            <span class="chart-title">Age</span>
+            <span style="font-size:11px;color:var(--gray-500)" id="ageN"></span>
+        </div>
+        <div id="ageChart"></div>
+    </div>
+
+    <!-- Fraser / Term summary -->
+    <div class="chart-card" id="fourthChart"></div>
+</div>
+
+{% if not active_terms %}
+<div class="card" style="text-align:center;color:var(--gray-500);margin-top:20px">
+    No annotations yet. Charts will appear once annotators start working.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const GENDER_LABELS = {{ gender_labels | tojson }};
+const GENDER_COLORS = {{ gender_colors | tojson }};
+const MST_COLORS = {{ mst_colors | tojson }};
+const DIM_COLORS = {{ dim_colors | tojson }};
+
+let currentTerm = '';
+
+async function filterTerm(btn, termId) {
+    document.querySelectorAll('.term-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTerm = termId;
+
+    const info = document.getElementById('termInfo');
+    if (termId) {
+        info.style.display = 'block';
+        info.innerHTML = `Stats for: <strong>"${btn.textContent.trim()}"</strong>`;
+    } else {
+        info.style.display = 'none';
+    }
+
+    const url = termId ? `/api/admin/stats?term_id=${termId}` : '/api/admin/stats';
+    try {
+        const resp = await fetch(url);
+        const stats = await resp.json();
+        renderCharts(stats, !termId);
+    } catch (e) {
+        console.error('Failed to load stats:', e);
+    }
+}
+
+function renderCharts(stats, isGlobal) {
+    // Gender
+    const gTotal = (stats.gender.counts || []).reduce((s, v) => s + v, 0) + (stats.gender.na || 0);
+    document.getElementById('genderN').textContent = 'n=' + gTotal;
+    let gHtml = '';
+    (stats.gender.counts || []).forEach((count, i) => {
+        const pct = gTotal > 0 ? Math.round((count / gTotal) * 100) : 0;
+        gHtml += `
+            <div class="chart-bar-row">
+                <span class="chart-bar-label">${stats.gender.labels[i]}</span>
+                <div class="chart-bar-track">
+                    <div class="chart-bar-fill" style="width:${pct}%;background:${GENDER_COLORS[i]}"></div>
+                </div>
+                <span class="chart-bar-value">${count} (${pct}%)</span>
+            </div>`;
+    });
+    document.getElementById('genderChart').innerHTML = gHtml;
+    const gImb = (stats.gender.counts || []).some(c => gTotal > 0 && c / gTotal > 0.6);
+    const gWarn = document.getElementById('genderWarning');
+    if (gImb) { gWarn.style.display = 'block'; gWarn.textContent = '⚠ Imbalance: one category exceeds 60%'; }
+    else { gWarn.style.display = 'none'; }
+
+    // Skin tone
+    const sTotal = (stats.skin_tone || []).reduce((s, v) => s + v, 0);
+    const sMax = Math.max(...(stats.skin_tone || [1]));
+    document.getElementById('skinN').textContent = 'n=' + sTotal;
+    let sHtml = '';
+    (stats.skin_tone || []).forEach((count, i) => {
+        const h = sMax > 0 ? (count / sMax) * 60 : 0;
+        sHtml += `
+            <div class="mst-bar-col">
+                <div class="mst-bar-count">${count || ''}</div>
+                <div class="mst-bar" style="height:${h}px;background:${MST_COLORS[i]};${count > 0 ? 'border:1px solid #ddd' : ''}"></div>
+                <div class="mst-bar-num">${i + 1}</div>
+            </div>`;
+    });
+    document.getElementById('skinChart').innerHTML = sHtml;
+    const darkCount = (stats.skin_tone || []).slice(7).reduce((s, v) => s + v, 0);
+    const sWarn = document.getElementById('skinWarning');
+    if (sTotal > 0 && darkCount < sTotal * 0.15) {
+        sWarn.style.display = 'block'; sWarn.textContent = '⚠ MST 8-10 under-represented';
+    } else { sWarn.style.display = 'none'; }
+
+    // Age
+    const ageEntries = Object.entries(stats.age || {});
+    const aTotal = ageEntries.reduce((s, [, v]) => s + v, 0);
+    document.getElementById('ageN').textContent = 'n=' + aTotal;
+    let aHtml = '';
+    ageEntries.forEach(([label, count]) => {
+        const pct = aTotal > 0 ? Math.round((count / aTotal) * 100) : 0;
+        const shortLabel = label.split(' ')[0];
+        aHtml += `
+            <div class="chart-bar-row">
+                <span class="chart-bar-label">${shortLabel}</span>
+                <div class="chart-bar-track">
+                    <div class="chart-bar-fill" style="width:${pct}%;background:#70AD47"></div>
+                </div>
+                <span class="chart-bar-value">${count} (${pct}%)</span>
+            </div>`;
+    });
+    document.getElementById('ageChart').innerHTML = aHtml;
+
+    // Fourth chart: Fraser (global) or Term summary (per-term)
+    const fourth = document.getElementById('fourthChart');
+    if (isGlobal) {
+        fourth.innerHTML = `
+            <div class="chart-title">Fraser Dimensions</div>
+            <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">
+                Distribution of annotated images across dimensions (based on campaign assignment).
+            </p>
+            <p style="font-size:13px;color:var(--gray-600)">
+                <strong>Total images:</strong> ${stats.total}
+            </p>`;
+    } else {
+        let warnings = '';
+        if (gImb) warnings += '<div style="padding:8px;background:var(--orange-light);border-radius:6px;font-size:12px;color:var(--orange);margin-top:8px">💡 Gender imbalance — search for under-represented presentations</div>';
+        const skinGap = (stats.skin_tone || []).filter(v => v === 0).length;
+        if (skinGap > 4) warnings += '<div style="padding:8px;background:var(--orange-light);border-radius:6px;font-size:12px;color:var(--orange);margin-top:8px">💡 Low skin tone diversity — try different languages/sources</div>';
+        fourth.innerHTML = `
+            <div class="chart-title">Term Summary</div>
+            <div style="font-size:13px;margin-bottom:6px"><strong>Total images:</strong> ${stats.total}</div>
+            ${warnings}`;
+    }
+}
+
+// Load initial global stats
+{% if active_terms %}
+document.addEventListener('DOMContentLoaded', () => {
+    filterTerm(document.querySelector('.term-filter-btn'), '');
+});
+{% endif %}
+</script>
+{% endblock %}

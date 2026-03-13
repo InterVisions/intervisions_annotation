@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}InterVisions{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% if current_user %}
+    <nav class="topbar">
+        <div class="topbar-left">
+            <a href="/" class="topbar-brand">InterVisions</a>
+            <span class="topbar-badge">{{ session.get('role', '').title() }}</span>
+        </div>
+        <div class="topbar-right">
+            {% if session.get('role') == 'admin' %}
+            <a href="{{ url_for('admin_progress') }}" class="topbar-link {% if tab == 'progress' %}active{% endif %}">Annotators</a>
+            <a href="{{ url_for('admin_dataset') }}" class="topbar-link {% if tab == 'dataset' %}active{% endif %}">Dataset</a>
+            <a href="{{ url_for('admin_balance') }}" class="topbar-link {% if tab == 'balance' %}active{% endif %}">Balancing</a>
+            <a href="{{ url_for('admin_campaigns') }}" class="topbar-link {% if tab == 'campaigns' %}active{% endif %}">Campaigns</a>
+            <a href="{{ url_for('admin_users') }}" class="topbar-link {% if tab == 'users' %}active{% endif %}">Users</a>
+            <a href="{{ url_for('admin_settings') }}" class="topbar-link {% if tab == 'settings' %}active{% endif %}">Settings</a>
+            <a href="{{ url_for('api_export_csv') }}" class="topbar-link">Export CSV</a>
+            {% endif %}
+            <span class="topbar-user">{{ session.get('display_name', 'User') }}</span>
+            <a href="{{ url_for('logout') }}" class="topbar-logout">Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

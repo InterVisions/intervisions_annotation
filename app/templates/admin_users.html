@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Admin - Users{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px">User Management</h2>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Create New User</h3>
+    <form method="POST" class="user-form">
+        <div class="form-group">
+            <label class="form-label">Username</label>
+            <input class="form-control" name="username" required placeholder="e.g. maria">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Display Name</label>
+            <input class="form-control" name="display_name" required placeholder="e.g. Maria García">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-control" type="password" name="password" required>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Role</label>
+            <select class="form-control" name="role">
+                <option value="annotator">Annotator</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary" style="margin-top:18px">Create</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Existing Users</h3>
+    <table class="table">
+        <thead><tr>
+            <th>Username</th><th>Display Name</th><th>Role</th><th>Created</th>
+        </tr></thead>
+        <tbody>
+        {% for user in users %}
+        <tr>
+            <td style="font-weight:500">{{ user.username }}</td>
+            <td>{{ user.display_name }}</td>
+            <td>
+                <span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;
+                    background:{% if user.role == 'admin' %}#e8f0fe;color:var(--blue){% else %}var(--green-light);color:var(--green){% endif %}">
+                    {{ user.role }}
+                </span>
+            </td>
+            <td style="color:var(--gray-500)">{{ user.created_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

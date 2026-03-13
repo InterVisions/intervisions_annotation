@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}New Task - InterVisions{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('annotator_dashboard') }}" style="color:var(--blue);font-size:13px;text-decoration:none">← Dashboard</a>
+<h2 style="margin:8px 0 20px">Pick a New Task</h2>
+
+<form method="POST" id="newTaskForm">
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom:8px">Step 1: Select a term</h3>
+        <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">
+            Reserved terms are greyed out. Choose an available term to start annotating.
+        </p>
+
+        {% for campaign in campaigns %}
+        <div style="margin-bottom:16px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">
+                {{ campaign.id }}. {{ campaign.name }}
+                {% for d in campaign.dimension.split(',') %}
+                <span class="dim-badge dim-{{ d.strip().lower() }}">{{ d.strip() }}</span>
+                {% endfor %}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+                {% for term in terms if term.campaign_id == campaign.id %}
+                {% if term.task_id %}
+                <button type="button" class="btn btn-secondary btn-sm" disabled
+                    style="text-decoration:line-through;opacity:0.5"
+                    title="Reserved by {{ term.taken_by }}">
+                    {{ term.term }}
+                </button>
+                {% else %}
+                <label style="cursor:pointer">
+                    <input type="radio" name="term_id" value="{{ term.id }}" required
+                        style="display:none" class="term-radio">
+                    <span class="btn btn-secondary btn-sm term-label"
+                        style="border:1px solid var(--blue);color:var(--blue)">
+                        {{ term.term }}
+                    </span>
+                </label>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom:8px">Step 2: Extra annotation fields</h3>
+        <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">
+            Gender, age, and skin tone are always included. Select additional fields if relevant:
+        </p>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer">
+            <input type="checkbox" name="extra_fields" value="perceived_disability">
+            Perceived Disability
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer">
+            <input type="checkbox" name="extra_fields" value="body_type_notes">
+            Body Type Notes
+        </label>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+        <a href="{{ url_for('annotator_dashboard') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Start Task →</button>
+    </div>
+</form>
+
+<style>
+.term-radio:checked + .term-label {
+    background: var(--blue) !important;
+    color: #fff !important;
+    font-weight: 700;
+}
+</style>
+{% endblock %}

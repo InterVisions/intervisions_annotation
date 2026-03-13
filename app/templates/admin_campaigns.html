@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Admin - Campaigns & Terms{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px">Campaigns & Terms</h2>
+
+<!-- Add Campaign -->
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Add Campaign</h3>
+    <form method="POST">
+        <input type="hidden" name="action" value="add_campaign">
+        <div style="display:grid;grid-template-columns:100px 1fr 200px 1fr auto;gap:10px;align-items:end">
+            <div class="form-group" style="margin:0">
+                <label class="form-label">ID</label>
+                <input class="form-control" name="campaign_id" placeholder="C9" required>
+            </div>
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Name</label>
+                <input class="form-control" name="name" placeholder="e.g. Local Education" required>
+            </div>
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Dimension(s)</label>
+                <select class="form-control" name="dimension">
+                    <option>Productive</option>
+                    <option>Reproductive</option>
+                    <option>Power</option>
+                    <option>Productive,Reproductive</option>
+                    <option>Power,Reproductive</option>
+                    <option>Productive,Power</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0">
+                <label class="form-label">Description</label>
+                <input class="form-control" name="description" placeholder="Optional description">
+            </div>
+            <div class="form-group" style="margin:0">
+                <button type="submit" class="btn btn-primary" style="margin-top:0">Add</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Campaigns & Terms list -->
+{% for campaign in campaigns %}
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+            <h3 style="font-size:15px;font-weight:700;margin:0">
+                {{ campaign.id }}. {{ campaign.name }}
+            </h3>
+            <div style="margin-top:4px">
+                {% for d in campaign.dimension.split(',') %}
+                <span class="dim-badge dim-{{ d.strip().lower() }}">{{ d.strip() }}</span>
+                {% endfor %}
+                {% if campaign.description %}
+                <span style="font-size:12px;color:var(--gray-500);margin-left:8px">{{ campaign.description }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <form method="POST" style="margin:0"
+            onsubmit="return confirm('Delete campaign {{ campaign.id }} and all its terms?')">
+            <input type="hidden" name="action" value="delete_campaign">
+            <input type="hidden" name="campaign_id" value="{{ campaign.id }}">
+            <button type="submit" class="btn btn-secondary btn-sm" style="color:#e74c3c">Delete Campaign</button>
+        </form>
+    </div>
+
+    <!-- Terms table -->
+    <table class="table" style="font-size:12px">
+        <thead><tr>
+            <th>Term</th>
+            <th>Dimensions</th>
+            <th>Target</th>
+            <th>Status</th>
+            <th>Annotations</th>
+            <th>Actions</th>
+        </tr></thead>
+        <tbody>
+        {% for term in terms if term.campaign_id == campaign.id %}
+        <tr>
+            <td style="font-weight:500">"{{ term.term }}"</td>
+            <td>
+                {% for d in term.dimensions.split(',') %}
+                <span class="dim-badge dim-{{ d.strip().lower() }}" style="font-size:10px">{{ d.strip() }}</span>
+                {% endfor %}
+            </td>
+            <td>
+                <form method="POST" style="display:inline-flex;gap:4px;align-items:center;margin:0">
+                    <input type="hidden" name="action" value="update_target">
+                    <input type="hidden" name="term_id" value="{{ term.id }}">
+                    <input type="number" name="target_images" value="{{ term.target_images }}"
+                        style="width:60px;padding:3px 6px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="padding:3px 8px;font-size:10px">Set</button>
+                </form>
+            </td>
+            <td>
+                {% if term.has_task %}
+                <span style="color:var(--orange);font-size:11px;font-weight:500">Reserved</span>
+                {% else %}
+                <span style="color:var(--gray-400);font-size:11px">Available</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if term.ann_count > 0 %}
+                <span style="font-weight:600">{{ term.ann_count }}</span>
+                {% else %}
+                <span style="color:var(--gray-400)">0</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if term.ann_count == 0 %}
+                <form method="POST" style="margin:0;display:inline"
+                    onsubmit="return confirm('Delete term &quot;{{ term.term }}&quot;?')">
+                    <input type="hidden" name="action" value="delete_term">
+                    <input type="hidden" name="term_id" value="{{ term.id }}">
+                    <button type="submit" class="btn btn-secondary btn-sm"
+                        style="padding:2px 8px;font-size:10px;color:#e74c3c">Delete</button>
+                </form>
+                {% else %}
+                <span style="font-size:10px;color:var(--gray-400)" title="Cannot delete: has annotations">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Add term to this campaign -->
+    <form method="POST" style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0">
+        <input type="hidden" name="action" value="add_term">
+        <input type="hidden" name="campaign_id" value="{{ campaign.id }}">
+        <div style="display:flex;gap:8px;align-items:end">
+            <div class="form-group" style="margin:0;flex:2">
+                <label class="form-label" style="font-size:11px">New term</label>
+                <input class="form-control" name="term" placeholder='e.g. "a plumber"' required
+                    style="font-size:12px;padding:6px 8px">
+            </div>
+            <div class="form-group" style="margin:0;flex:1">
+                <label class="form-label" style="font-size:11px">Dimension(s)</label>
+                <select class="form-control" name="dimensions" style="font-size:12px;padding:6px 8px">
+                    <option>Productive</option>
+                    <option>Reproductive</option>
+                    <option>Power</option>
+                    <option>Productive,Reproductive</option>
+                    <option>Power,Reproductive</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;width:80px">
+                <label class="form-label" style="font-size:11px">Target</label>
+                <input type="number" class="form-control" name="target_images" placeholder="{{ default_target }}"
+                    style="font-size:12px;padding:6px 8px">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+        </div>
+    </form>
+</div>
+{% endfor %}
+
+{% if not campaigns %}
+<div class="card" style="text-align:center;color:var(--gray-500)">No campaigns yet.</div>
+{% endif %}
+{% endblock %}

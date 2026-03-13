@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InterVisions - Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-title">InterVisions</div>
+            <div class="login-subtitle">ANNOTATION PLATFORM</div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}" style="margin-bottom:16px">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <label class="login-label">
+                    Username
+                    <input class="login-input" name="username" required autofocus>
+                </label>
+                <label class="login-label">
+                    Password
+                    <input class="login-input" type="password" name="password" required>
+                </label>
+                <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;margin-top:8px">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

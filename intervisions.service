@@ -1,0 +1,19 @@
+[Unit]
+Description=InterVisions Annotation Platform
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/intervisions
+Environment="DATABASE_PATH=/data/intervisions/intervisions.db"
+Environment="UPLOAD_FOLDER=/data/intervisions/images"
+Environment="SECRET_KEY=CHANGE_ME_TO_A_RANDOM_STRING"
+Environment="ADMIN_PASSWORD=intervisions2025"
+ExecStart=/home/ec2-user/intervisions/venv/bin/gunicorn --bind 0.0.0.0:80 --workers 2 --timeout 120 app.main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
