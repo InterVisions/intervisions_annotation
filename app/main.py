@@ -804,6 +804,8 @@ def inject_globals():
 
 # ─── Main ──────────────────────────────────────────────────────────────────
 
+# Always initialize DB on import (needed for gunicorn which doesn't run __main__)
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=5000, debug=True)
