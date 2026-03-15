@@ -4,14 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=ec2-user
-Group=ec2-user
-WorkingDirectory=/home/ec2-user/intervisions
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/intervisions_annotation
 Environment="DATABASE_PATH=/data/intervisions/intervisions.db"
 Environment="UPLOAD_FOLDER=/data/intervisions/images"
-Environment="SECRET_KEY=CHANGE_ME_TO_A_RANDOM_STRING"
-Environment="ADMIN_PASSWORD=intervisions2025"
-ExecStart=/home/ec2-user/intervisions/venv/bin/gunicorn --bind 0.0.0.0:80 --workers 2 --timeout 120 app.main:app
+Environment="SECRET_KEY=9e481407de6a6063f84cf4cf5a8ae6a627762c792206ecc02f472b2732a7baeb"
+Environment="ADMIN_PASSWORD=1nt3rvisions2026"
+ExecStart=/home/ubuntu/intervisions_annotation/venv/bin/gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 app.main:app
 Restart=always
 RestartSec=5
 
