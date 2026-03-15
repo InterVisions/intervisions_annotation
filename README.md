@@ -110,7 +110,13 @@ sudo systemctl status intervisions
 sudo journalctl -u intervisions -f
 ```
 
-### 5. Access
+### (Optional) Port forwarding (browser can access through port 80)
+```
+sudo sh -c 'echo "iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080" >> /etc/rc.local'
+sudo chmod +x /etc/rc.local
+```
+
+### Access
 
 Open `http://YOUR_CLOUD_PUBLIC_IP` in your browser.
 
@@ -118,7 +124,7 @@ Open `http://YOUR_CLOUD_PUBLIC_IP` in your browser.
 - Go to **Users** tab to create annotator accounts
 - Annotators can then log in and start working
 
-### 6. Common operations
+### Common operations
 
 ```bash
 # Restart after code changes
