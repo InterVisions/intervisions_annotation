@@ -54,14 +54,14 @@
             <div style="overflow-x:auto">
                 <table class="ann-table" id="recentTable">
                     <thead><tr>
-                        <th>#</th><th>Gender</th><th>Age</th><th>FST</th><th>Lic.</th><th>Suit.</th>
+                        <th>#</th><th>Gender</th><th>Age</th><th>FST</th><th>Lic.</th>
                     </tr></thead>
                     <tbody>
                     {% for a in annotations[:10] %}
                     <tr>
                         <td>{{ loop.index }}</td>
                         <td>
-                            {% if a.perceived_gender is not none and a.perceived_gender >= 0 and a.perceived_gender <= 4 %}
+                            {% if a.perceived_gender is not none and a.perceived_gender >= 0 and a.perceived_gender <= 2 %}
                             <span class="gender-dot" style="background:{{ gender_colors[a.perceived_gender] }}"></span>
                             {{ gender_short[a.perceived_gender] }}
                             {% else %}N/D{% endif %}
@@ -74,9 +74,6 @@
                             {% else %}—{% endif %}
                         </td>
                         <td>{{ a.licence }}</td>
-                        <td style="color:{% if a.suitability == 'Suitable' %}var(--green){% else %}var(--orange){% endif %}">
-                            {% if a.suitability == 'Suitable' %}✓{% else %}~{% endif %}
-                        </td>
                     </tr>
                     {% endfor %}
                     </tbody>
@@ -90,35 +87,12 @@
         <div class="card" id="annotationForm">
             <h3 style="font-size:15px;margin-bottom:16px">Annotation</h3>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Licence</label>
-                    <select class="form-control" id="fLicence">
-                        <option selected>CC-BY</option>
-                        <option>CC-BY-SA</option>
-                        <option>CC0 / Public Domain</option>
-                        <option>Unsplash</option>
-                        <option>Pexels</option>
-                        <option>URL only (©)</option>
-                        <option>Other</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Concept Match</label>
-                    <select class="form-control" id="fConceptMatch">
-                        <option selected>Yes</option>
-                        <option>Partially</option>
-                        <option>No</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Suitability</label>
-                    <select class="form-control" id="fSuitability">
-                        <option selected>Suitable</option>
-                        <option>Marginally suitable</option>
-                        <option>Not suitable</option>
-                    </select>
-                </div>
+            <div class="form-group">
+                <label class="form-label">Licence</label>
+                <select class="form-control" id="fLicence">
+                    <option selected>CC</option>
+                    <option>Others/Unknown</option>
+                </select>
             </div>
 
             <div class="form-group">
@@ -324,12 +298,10 @@ async function saveAnnotation() {
     const data = {
         image_url: url,
         licence: document.getElementById('fLicence').value,
-        concept_match: document.getElementById('fConceptMatch').value,
         num_people: formState.numPeople,
         perceived_gender: formState.gender,
         perceived_age: document.getElementById('fAge').value || null,
         perceived_skin_tone: formState.skinTone,
-        suitability: document.getElementById('fSuitability').value,
         intersectional_notes: document.getElementById('fNotes').value || null,
     };
 
@@ -372,15 +344,12 @@ async function saveAnnotation() {
             const gLabel = gVal >= 0 && gVal <= 4 ? GENDER_SHORT[gVal] : 'N/D';
             const stVal = data.perceived_skin_tone;
             const stColor = stVal > 0 ? MST_COLORS[stVal - 1] : '#ccc';
-            const suit = data.suitability === 'Suitable' ? '✓' : '~';
-            const suitColor = data.suitability === 'Suitable' ? 'var(--green)' : 'var(--orange)';
             row.innerHTML = `
                 <td>${result.annotation_count}</td>
                 <td><span class="gender-dot" style="background:${gColor}"></span>${gLabel}</td>
                 <td>${(data.perceived_age || '').split(' ')[0]}</td>
                 <td>${stVal > 0 ? `<span class="mst-dot" style="background:${stColor}"></span>${stVal}` : '—'}</td>
                 <td>${data.licence}</td>
-                <td style="color:${suitColor}">${suit}</td>
             `;
             tbody.insertBefore(row, tbody.firstChild);
 

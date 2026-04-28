@@ -654,19 +654,19 @@ def api_export_csv():
     writer.writerow([
         "annotation_id", "campaign_id", "campaign_name", "term", "term_dimensions",
         "annotator", "image_url", "image_width", "image_height", "image_size_kb",
-        "image_format", "licence", "concept_match", "num_people", "perceived_gender",
+        "image_format", "licence", "num_people", "perceived_gender",
         "perceived_age", "perceived_skin_tone", "perceived_disability",
-        "body_type_notes", "perceived_socioeconomic_status", "suitability", "suitability_reason",
+        "body_type_notes", "perceived_socioeconomic_status",
         "intersectional_notes", "created_at"
     ])
     for a in annotations:
         writer.writerow([
             a["id"], a["campaign_id"], a["campaign_name"], a["term"], a["term_dims"],
             a["annotator_name"], a["image_url"], a["image_width"], a["image_height"],
-            a["image_size_kb"], a["image_format"], a["licence"], a["concept_match"],
+            a["image_size_kb"], a["image_format"], a["licence"],
             a["num_people"], a["perceived_gender"], a["perceived_age"],
             a["perceived_skin_tone"], a["perceived_disability"],
-            a["body_type_notes"], a["perceived_socioeconomic_status"], a["suitability"], a["suitability_reason"],
+            a["body_type_notes"], a["perceived_socioeconomic_status"],
             a["intersectional_notes"], a["created_at"]
         ])
 
