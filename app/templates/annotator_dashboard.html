@@ -49,6 +49,7 @@
                 </div>
             </div>
             <a href="{{ url_for('annotate', task_id=task.id) }}" class="btn btn-primary btn-sm">Continue →</a>
+            <button class="btn btn-success btn-sm" onclick="completeTask({{ task.id }})">Mark Complete</button>
         </div>
     </div>
     {% endfor %}
@@ -68,4 +69,14 @@
     {% endfor %}
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function completeTask(taskId) {
+    if (!confirm('Mark this task as completed? You will no longer be able to add images to it.')) return;
+    await fetch(`/api/task/${taskId}/complete`, { method: 'POST' });
+    window.location.reload();
+}
+</script>
 {% endblock %}

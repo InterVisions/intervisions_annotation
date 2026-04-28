@@ -22,9 +22,6 @@
             <span style="color:var(--gray-500)">FST: </span>
             <span id="statMST" style="font-weight:600">{{ stats.mst_spread }}/6</span>
         </div>
-        {% if task.status == 'in_progress' %}
-        <button class="btn btn-success btn-sm" onclick="completeTask()">Mark Complete</button>
-        {% endif %}
     </div>
 </div>
 
@@ -375,10 +372,5 @@ async function saveAnnotation() {
     }
 }
 
-async function completeTask() {
-    if (!confirm('Mark this task as completed?')) return;
-    await fetch(`/api/task/${TASK_ID}/complete`, { method: 'POST' });
-    window.location.href = '{{ url_for("annotator_dashboard") }}';
-}
 </script>
 {% endblock %}
