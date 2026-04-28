@@ -396,8 +396,19 @@ def api_preview_image():
     if not image_url:
         return jsonify({"error": "No URL provided"}), 400
     try:
-        resp = requests.get(image_url, timeout=10,
-                            headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
+        from urllib.parse import urlparse
+        parsed = urlparse(image_url)
+        referer = f"{parsed.scheme}://{parsed.netloc}/"
+        resp = requests.get(image_url, timeout=10, headers={
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": referer,
+            "Sec-Fetch-Dest": "image",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "same-site",
+        })
         if resp.status_code != 200:
             return jsonify({"error": f"HTTP {resp.status_code}"}), 400
         content = resp.content
