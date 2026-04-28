@@ -12,14 +12,16 @@
         </div>
     </div>
     <div style="display:flex;gap:8px">
-        <div class="card" style="padding:8px 14px;margin:0;font-size:12px">
-            <span style="color:var(--gray-500)">Gender: </span>
+        <div class="card" style="padding:8px 14px;margin:0;font-size:12px"
+             title="Number of annotated images per perceived gender category">
+            <div style="color:var(--gray-500);margin-bottom:2px">Gender balance</div>
             <span id="statGender" style="font-weight:600">
-                {% for i in range(5) %}{{ gender_short[i] }}:{{ stats.gender.counts[i] if stats.gender.counts else 0 }}{% if not loop.last %} {% endif %}{% endfor %}
+                {% for i in range(3) %}{{ gender_short[i] }}:{{ stats.gender.counts[i] if stats.gender.counts else 0 }}{% if not loop.last %} {% endif %}{% endfor %}
             </span>
         </div>
-        <div class="card" style="padding:8px 14px;margin:0;font-size:12px">
-            <span style="color:var(--gray-500)">FST: </span>
+        <div class="card" style="padding:8px 14px;margin:0;font-size:12px"
+             title="Number of distinct Fitzpatrick skin tone values covered out of 6">
+            <div style="color:var(--gray-500);margin-bottom:2px">Skin tone coverage</div>
             <span id="statMST" style="font-weight:600">{{ stats.mst_spread }}/6</span>
         </div>
     </div>
