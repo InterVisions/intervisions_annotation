@@ -139,56 +139,9 @@ CAMPAIGNS_DATA = [
     ("C8", "Cultural Events", "Reproductive", "Local cultural events and arts programme"),
 ]
 
-TERMS_DATA = [
-    ("C1", "a mechanic", "Productive"),
-    ("C1", "a nurse", "Productive"),
-    ("C1", "an electrician", "Productive"),
-    ("C1", "a hairdresser", "Productive"),
-    ("C1", "a cook / chef", "Productive"),
-    ("C1", "an IT technician", "Productive"),
-    ("C1", "students in a workshop", "Productive"),
-    ("C1", "a welder", "Productive"),
-    ("C2", "a person running", "Reproductive"),
-    ("C2", "a person doing yoga", "Reproductive"),
-    ("C2", "a person swimming", "Reproductive"),
-    ("C2", "a person lifting weights", "Reproductive"),
-    ("C2", "a family cycling", "Reproductive"),
-    ("C2", "an elderly person exercising", "Reproductive"),
-    ("C3", "people in a park", "Reproductive"),
-    ("C3", "children playing outdoors", "Reproductive"),
-    ("C3", "a person walking a dog", "Reproductive"),
-    ("C3", "elderly people on a bench", "Reproductive"),
-    ("C3", "a community garden", "Reproductive"),
-    ("C4", "a mayor", "Power"),
-    ("C4", "a city council member", "Power"),
-    ("C4", "a politician giving a speech", "Power"),
-    ("C4", "a public servant", "Power"),
-    ("C4", "a police officer", "Power"),
-    ("C5", "a reading club", "Reproductive"),
-    ("C5", "a language exchange group", "Reproductive"),
-    ("C5", "a computing class", "Productive"),
-    ("C5", "a crafts workshop", "Reproductive"),
-    ("C5", "a yoga class", "Reproductive"),
-    ("C6", "a neighbourhood assembly", "Power"),
-    ("C6", "people in a community garden", "Reproductive"),
-    ("C6", "a protest or demonstration", "Power"),
-    ("C6", "volunteers serving food", "Reproductive"),
-    ("C7", "caring for an elderly relative", "Reproductive"),
-    ("C7", "a person doing housework", "Reproductive"),
-    ("C7", "a person grocery shopping", "Reproductive"),
-    ("C7", "a parent with a child", "Reproductive"),
-    ("C7", "a home care worker", "Reproductive,Productive"),
-    ("C8", "a theatre performance", "Reproductive"),
-    ("C8", "a person visiting a museum", "Reproductive"),
-    ("C8", "a local music concert", "Reproductive"),
-    ("C8", "an art exhibition", "Reproductive"),
-]
-
 def seed_campaigns(db):
     for cid, name, dim, desc in CAMPAIGNS_DATA:
         db.execute("INSERT OR IGNORE INTO campaigns VALUES (?, ?, ?, ?)", (cid, name, dim, desc))
-    for cid, term, dims in TERMS_DATA:
-        db.execute("INSERT OR IGNORE INTO terms (campaign_id, term, dimensions) VALUES (?, ?, ?)", (cid, term, dims))
     db.commit()
 
 # ─── Auth ───────────────────────────────────────────────────────────────────
