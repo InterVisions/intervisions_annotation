@@ -388,6 +388,30 @@ def api_complete_task(task_id):
 def serve_image(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
+@app.route("/api/preview-image", methods=["POST"])
+@login_required
+def api_preview_image():
+    data = request.get_json()
+    image_url = data.get("image_url", "").strip()
+    if not image_url:
+        return jsonify({"error": "No URL provided"}), 400
+    try:
+        resp = requests.get(image_url, timeout=10,
+                            headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
+        if resp.status_code != 200:
+            return jsonify({"error": f"HTTP {resp.status_code}"}), 400
+        content = resp.content
+        img = PILImage.open(BytesIO(content))
+        ext = (img.format or "jpeg").lower()
+        if ext == "jpeg":
+            ext = "jpg"
+        fname = f"tmp_{secrets.token_hex(8)}.{ext}"
+        with open(os.path.join(app.config["UPLOAD_FOLDER"], fname), "wb") as f:
+            f.write(content)
+        return jsonify({"url": url_for("serve_image", filename=fname)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ─── Routes: Admin ──────────────────────────────────────────────────────────
 
 @app.route("/admin")

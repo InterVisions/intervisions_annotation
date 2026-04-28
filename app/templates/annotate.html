@@ -254,7 +254,32 @@ function toggleMSTRef() {
     document.getElementById('mstRef').classList.toggle('show');
 }
 
-function loadImage() {
+function showImageFromSrc(src, originalUrl) {
+    const preview = document.getElementById('imagePreview');
+    const meta = document.getElementById('imageMeta');
+    const source = document.getElementById('imageSource');
+    const img = new Image();
+    img.onload = function() {
+        preview.innerHTML = '';
+        preview.appendChild(img);
+        meta.style.display = 'flex';
+        meta.innerHTML = `
+            <span><strong>Resolution:</strong> ${img.naturalWidth} × ${img.naturalHeight} px</span>
+            <span><strong>Aspect:</strong> ${(img.naturalWidth / img.naturalHeight).toFixed(2)}</span>
+        `;
+        source.textContent = 'Source: ' + originalUrl;
+    };
+    img.onerror = function() {
+        preview.innerHTML = '<span style="color:#e74c3c">Could not load image even through server proxy.</span>';
+        meta.style.display = 'none';
+    };
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '400px';
+    img.style.objectFit = 'contain';
+    img.src = src;
+}
+
+async function loadImage() {
     const url = document.getElementById('imageUrl').value.trim();
     if (!url) return;
     const preview = document.getElementById('imagePreview');
@@ -273,10 +298,26 @@ function loadImage() {
         `;
         source.textContent = 'Source: ' + url;
     };
-    img.onerror = function() {
-        preview.innerHTML = '<span style="color:#e74c3c">Failed to load image. The URL may not allow direct access. The image will still be downloaded server-side when you save.</span>';
+    img.onerror = async function() {
+        preview.innerHTML = '<span style="color:#999">Direct load blocked, fetching via server...</span>';
         meta.style.display = 'none';
-        source.textContent = 'Source: ' + url;
+        try {
+            const resp = await fetch('/api/preview-image', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({image_url: url})
+            });
+            const result = await resp.json();
+            if (result.url) {
+                showImageFromSrc(result.url, url);
+            } else {
+                preview.innerHTML = `<span style="color:#e74c3c">Could not load image: ${result.error || 'unknown error'}</span>`;
+                source.textContent = 'Source: ' + url;
+            }
+        } catch (e) {
+            preview.innerHTML = '<span style="color:#e74c3c">Failed to load image.</span>';
+            source.textContent = 'Source: ' + url;
+        }
     };
     img.style.maxWidth = '100%';
     img.style.maxHeight = '400px';
