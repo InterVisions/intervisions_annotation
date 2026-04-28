@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     extra_fields TEXT DEFAULT '[]',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
-    UNIQUE(term_id)
+    UNIQUE(term_id, annotator_id)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -240,28 +240,34 @@ def new_task():
     if request.method == "POST":
         term_id = request.form.get("term_id")
         extra_fields = request.form.getlist("extra_fields")
-        # Check term not already taken
-        existing = db.execute("SELECT id FROM tasks WHERE term_id = ?", (term_id,)).fetchone()
+        existing = db.execute(
+            "SELECT id FROM tasks WHERE term_id = ? AND annotator_id = ?", (term_id, uid)
+        ).fetchone()
         if existing:
-            flash("This term is already reserved by another annotator", "error")
+            flash("You are already working on this term", "error")
             return redirect(url_for("new_task"))
         db.execute(
             "INSERT INTO tasks (term_id, annotator_id, extra_fields) VALUES (?, ?, ?)",
             (term_id, uid, json.dumps(extra_fields))
         )
         db.commit()
-        task = db.execute("SELECT id FROM tasks WHERE term_id = ?", (term_id,)).fetchone()
+        task = db.execute(
+            "SELECT id FROM tasks WHERE term_id = ? AND annotator_id = ?", (term_id, uid)
+        ).fetchone()
         return redirect(url_for("annotate", task_id=task["id"]))
 
-    # Get all campaigns with terms, marking taken ones
     campaigns = db.execute("SELECT * FROM campaigns ORDER BY id").fetchall()
     terms = db.execute("""
-        SELECT te.*, t.id as task_id, t.annotator_id, u.display_name as taken_by
+        SELECT te.*,
+            COUNT(t.id) as task_count,
+            SUM(CASE WHEN t.annotator_id = ? THEN 1 ELSE 0 END) as already_joined,
+            GROUP_CONCAT(u.display_name, ', ') as collaborators
         FROM terms te
         LEFT JOIN tasks t ON te.id = t.term_id
         LEFT JOIN users u ON t.annotator_id = u.id
+        GROUP BY te.id
         ORDER BY te.campaign_id, te.term
-    """).fetchall()
+    """, (uid,)).fetchall()
     return render_template("new_task.html", campaigns=campaigns, terms=terms)
 
 @app.route("/annotator/task/<int:task_id>")
@@ -449,9 +455,9 @@ def admin_balance():
     db = get_db()
     # Get terms that have annotations
     active_terms = db.execute("""
-        SELECT te.id, te.term, te.campaign_id, t.id as task_id
-        FROM terms te JOIN tasks t ON te.id = t.term_id
-        WHERE (SELECT COUNT(*) FROM annotations WHERE task_id = t.id) > 0
+        SELECT te.id, te.term, te.campaign_id
+        FROM terms te
+        WHERE (SELECT COUNT(*) FROM annotations a JOIN tasks t ON a.task_id = t.id WHERE t.term_id = te.id) > 0
         ORDER BY te.campaign_id, te.term
     """).fetchall()
     return render_template("admin_balance.html", active_terms=active_terms, tab="balance")
@@ -464,11 +470,13 @@ def api_admin_stats():
     term_id = request.args.get("term_id")
 
     if term_id:
-        task = db.execute("SELECT id FROM tasks WHERE term_id = ?", (term_id,)).fetchone()
-        if not task:
+        tasks = db.execute("SELECT id FROM tasks WHERE term_id = ?", (term_id,)).fetchall()
+        if not tasks:
             return jsonify({"error": "No task for this term"}), 404
+        task_ids = [t["id"] for t in tasks]
         annotations = db.execute(
-            "SELECT * FROM annotations WHERE task_id = ?", (task["id"],)
+            "SELECT * FROM annotations WHERE task_id IN ({})".format(",".join("?" * len(task_ids))),
+            task_ids
         ).fetchall()
     else:
         annotations = db.execute("SELECT * FROM annotations").fetchall()

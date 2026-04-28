@@ -22,11 +22,10 @@
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:6px">
                 {% for term in terms if term.campaign_id == campaign.id %}
-                {% if term.task_id %}
+                {% if term.already_joined %}
                 <button type="button" class="btn btn-secondary btn-sm" disabled
-                    style="text-decoration:line-through;opacity:0.5"
-                    title="Reserved by {{ term.taken_by }}">
-                    {{ term.term }}
+                    style="opacity:0.5" title="You are already working on this term">
+                    {{ term.term }} ✓
                 </button>
                 {% else %}
                 <label style="cursor:pointer">
@@ -35,6 +34,12 @@
                     <span class="btn btn-secondary btn-sm term-label"
                         style="border:1px solid var(--blue);color:var(--blue)">
                         {{ term.term }}
+                        {% if term.task_count > 0 %}
+                        <span style="font-size:10px;opacity:0.7;margin-left:4px"
+                              title="Collaborating: {{ term.collaborators }}">
+                            ({{ term.task_count }} working)
+                        </span>
+                        {% endif %}
                     </span>
                 </label>
                 {% endif %}
