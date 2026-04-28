@@ -56,9 +56,27 @@
 </div>
 
 <div class="card">
-    <h3 class="card-title" style="margin-bottom:8px">Database</h3>
+    <h3 class="card-title" style="margin-bottom:8px">Configuration Backup &amp; Restore</h3>
     <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">
-        To backup the database, download the full export as CSV:
+        Export users, terms and settings to a JSON file. After a DB reset, restore from that file to avoid re-entering everything manually.
+    </p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <a href="{{ url_for('api_backup_config') }}" class="btn btn-secondary">Download config backup</a>
+        <form method="POST" action="{{ url_for('api_restore_config') }}" enctype="multipart/form-data"
+              style="display:flex;gap:8px;align-items:center">
+            <input type="file" name="backup_file" accept=".json" required style="font-size:13px">
+            <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('This will restore users and terms from the backup file. Existing entries will not be overwritten. Continue?')">
+                Restore from backup
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:8px">Annotations Export</h3>
+    <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">
+        Download all annotation data as CSV:
     </p>
     <a href="{{ url_for('api_export_csv') }}" class="btn btn-secondary">Download annotations CSV</a>
 </div>

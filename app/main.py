@@ -104,6 +104,12 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_logins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    logged_in_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS annotations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id INTEGER NOT NULL REFERENCES tasks(id),
@@ -190,6 +196,8 @@ def login():
             session["user_id"] = user["id"]
             session["role"] = user["role"]
             session["display_name"] = user["display_name"]
+            db.execute("INSERT INTO user_logins (user_id) VALUES (?)", (user["id"],))
+            db.commit()
             if user["role"] == "admin":
                 return redirect(url_for("admin_dashboard"))
             return redirect(url_for("annotator_dashboard"))
@@ -440,7 +448,10 @@ def admin_progress():
             (SELECT COUNT(*) FROM tasks WHERE annotator_id = u.id) as total_tasks,
             (SELECT COUNT(*) FROM tasks WHERE annotator_id = u.id AND status = 'completed') as completed_tasks,
             (SELECT COUNT(*) FROM tasks WHERE annotator_id = u.id AND status = 'in_progress') as open_tasks,
-            (SELECT COUNT(*) FROM annotations a JOIN tasks t ON a.task_id = t.id WHERE t.annotator_id = u.id) as total_images
+            (SELECT COUNT(*) FROM annotations a JOIN tasks t ON a.task_id = t.id WHERE t.annotator_id = u.id) as total_images,
+            (SELECT COUNT(*) FROM user_logins WHERE user_id = u.id) as login_count,
+            (SELECT MAX(logged_in_at) FROM user_logins WHERE user_id = u.id) as last_login,
+            (SELECT MAX(a.created_at) FROM annotations a JOIN tasks t ON a.task_id = t.id WHERE t.annotator_id = u.id) as last_annotation
         FROM users u WHERE u.role = 'annotator'
     """).fetchall()
 
@@ -673,6 +684,63 @@ def admin_settings():
     return render_template("admin_settings.html",
         default_target=default_target, total_terms=total_terms,
         total_campaigns=total_campaigns, tab="settings")
+
+@app.route("/api/admin/backup-config")
+@admin_required
+def api_backup_config():
+    db = get_db()
+    users = db.execute(
+        "SELECT username, password_hash, role, display_name FROM users WHERE username != 'admin'"
+    ).fetchall()
+    terms = db.execute(
+        "SELECT campaign_id, term, dimensions, target_images FROM terms ORDER BY campaign_id, term"
+    ).fetchall()
+    settings = db.execute("SELECT key, value FROM settings").fetchall()
+    payload = {
+        "users": [dict(u) for u in users],
+        "terms": [dict(t) for t in terms],
+        "settings": [dict(s) for s in settings],
+    }
+    from flask import Response
+    return Response(
+        json.dumps(payload, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=intervisions_config_backup.json"}
+    )
+
+@app.route("/api/admin/restore-config", methods=["POST"])
+@admin_required
+def api_restore_config():
+    f = request.files.get("backup_file")
+    if not f:
+        flash("No file uploaded", "error")
+        return redirect(url_for("admin_settings"))
+    try:
+        payload = json.load(f)
+        db = get_db()
+        for u in payload.get("users", []):
+            try:
+                db.execute(
+                    "INSERT OR IGNORE INTO users (username, password_hash, role, display_name) VALUES (?, ?, ?, ?)",
+                    (u["username"], u["password_hash"], u["role"], u["display_name"])
+                )
+            except Exception:
+                pass
+        for t in payload.get("terms", []):
+            try:
+                db.execute(
+                    "INSERT OR IGNORE INTO terms (campaign_id, term, dimensions, target_images) VALUES (?, ?, ?, ?)",
+                    (t["campaign_id"], t["term"], t["dimensions"], t["target_images"])
+                )
+            except Exception:
+                pass
+        for s in payload.get("settings", []):
+            db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (s["key"], s["value"]))
+        db.commit()
+        flash("Configuration restored successfully", "success")
+    except Exception as e:
+        flash(f"Restore failed: {e}", "error")
+    return redirect(url_for("admin_settings"))
 
 @app.route("/api/admin/export")
 @admin_required
