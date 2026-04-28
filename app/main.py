@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS annotations (
     perceived_skin_tone INTEGER DEFAULT 0,
     perceived_disability TEXT,
     body_type_notes TEXT,
+    perceived_socioeconomic_status TEXT,
     suitability TEXT DEFAULT 'Suitable',
     suitability_reason TEXT,
     intersectional_notes TEXT,
@@ -337,9 +338,9 @@ def api_save_annotation(task_id):
             task_id, image_url, image_path, image_width, image_height,
             image_size_kb, image_format, licence, concept_match, num_people,
             perceived_gender, perceived_age, perceived_skin_tone,
-            perceived_disability, body_type_notes, suitability,
-            suitability_reason, intersectional_notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            perceived_disability, body_type_notes, perceived_socioeconomic_status,
+            suitability, suitability_reason, intersectional_notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         task_id, image_url, img_path, img_width, img_height,
         img_size_kb, img_format,
@@ -351,6 +352,7 @@ def api_save_annotation(task_id):
         data.get("perceived_skin_tone", 0),
         data.get("perceived_disability"),
         data.get("body_type_notes"),
+        data.get("perceived_socioeconomic_status"),
         data.get("suitability", "Suitable"),
         data.get("suitability_reason"),
         data.get("intersectional_notes"),
@@ -654,7 +656,7 @@ def api_export_csv():
         "annotator", "image_url", "image_width", "image_height", "image_size_kb",
         "image_format", "licence", "concept_match", "num_people", "perceived_gender",
         "perceived_age", "perceived_skin_tone", "perceived_disability",
-        "body_type_notes", "suitability", "suitability_reason",
+        "body_type_notes", "perceived_socioeconomic_status", "suitability", "suitability_reason",
         "intersectional_notes", "created_at"
     ])
     for a in annotations:
@@ -664,7 +666,7 @@ def api_export_csv():
             a["image_size_kb"], a["image_format"], a["licence"], a["concept_match"],
             a["num_people"], a["perceived_gender"], a["perceived_age"],
             a["perceived_skin_tone"], a["perceived_disability"],
-            a["body_type_notes"], a["suitability"], a["suitability_reason"],
+            a["body_type_notes"], a["perceived_socioeconomic_status"], a["suitability"], a["suitability_reason"],
             a["intersectional_notes"], a["created_at"]
         ])
 
@@ -678,8 +680,7 @@ def api_export_csv():
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 GENDER_LABELS = [
-    "Predominantly feminine", "Mostly feminine",
-    "Non-binary / ambiguous", "Mostly masculine", "Predominantly masculine"
+    "More maleness", "Non-binary", "More femaleness"
 ]
 
 def compute_task_stats(db, task_id):
@@ -695,20 +696,20 @@ def compute_stats_from_annotations(annotations):
                 "gender_labels": GENDER_LABELS}
 
     # Gender distribution (5-step)
-    gender_counts = [0] * 5
+    gender_counts = [0] * 3
     gender_na = 0
     for a in annotations:
         g = a["perceived_gender"]
-        if g is not None and 0 <= g <= 4:
+        if g is not None and 0 <= g <= 2:
             gender_counts[g] += 1
         else:
             gender_na += 1
 
     # Skin tone distribution (MST 1-10)
-    skin_counts = [0] * 10
+    skin_counts = [0] * 6
     for a in annotations:
         st = a["perceived_skin_tone"]
-        if st and 1 <= st <= 10:
+        if st and 1 <= st <= 6:
             skin_counts[st - 1] += 1
 
     # Age distribution
@@ -743,11 +744,10 @@ def inject_globals():
         "current_user": get_current_user(),
         "gender_labels": GENDER_LABELS,
         "mst_colors": [
-            "#f6ede4", "#f3e7db", "#f7d7b4", "#efc68e", "#d99f6e",
-            "#b07a4b", "#8c5a2e", "#6a3d1a", "#4a2912", "#2d1a0b"
+            "#664e41", "#886951", "#a48367", "#af9478", "#bda389", "#c6b49d"
         ],
-        "gender_colors": ["#C77DBA", "#CFA0C8", "#A0A0A0", "#7BA3C9", "#4A8BC2"],
-        "gender_short": ["Fem", "M.Fem", "NB", "M.Masc", "Masc"],
+        "gender_colors": ["#4A8BC2", "#A0A0A0", "#C77DBA"],
+        "gender_short": ["M.Male", "NB", "M.Female"],
         "dim_colors": {
             "Productive": "#4472C4",
             "Reproductive": "#70AD47",

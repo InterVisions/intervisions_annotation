@@ -20,7 +20,7 @@
         </div>
         <div class="card" style="padding:8px 14px;margin:0;font-size:12px">
             <span style="color:var(--gray-500)">MST: </span>
-            <span id="statMST" style="font-weight:600">{{ stats.mst_spread }}/10</span>
+            <span id="statMST" style="font-weight:600">{{ stats.mst_spread }}/6</span>
         </div>
         {% if task.status == 'in_progress' %}
         <button class="btn btn-success btn-sm" onclick="completeTask()">Mark Complete</button>
@@ -134,15 +134,13 @@
             <div id="demographicFields">
                 <!-- Gender -->
                 <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
-                    <label class="form-label">Perceived Gender <span class="form-hint">(5-step scale)</span></label>
+                    <label class="form-label">Perceived Gender <span class="form-hint">(3-step scale)</span></label>
                     <div class="gender-selector">
-                        <button type="button" class="gender-btn" data-value="0" onclick="setGender(0)">Fem</button>
-                        <button type="button" class="gender-btn" data-value="1" onclick="setGender(1)">M.Fem</button>
-                        <button type="button" class="gender-btn active" data-value="2" onclick="setGender(2)">NB</button>
-                        <button type="button" class="gender-btn" data-value="3" onclick="setGender(3)">M.Masc</button>
-                        <button type="button" class="gender-btn" data-value="4" onclick="setGender(4)">Masc</button>
+                        <button type="button" class="gender-btn" data-value="0" onclick="setGender(0)">M.Male</button>
+                        <button type="button" class="gender-btn active" data-value="1" onclick="setGender(1)">NB</button>
+                        <button type="button" class="gender-btn" data-value="2" onclick="setGender(2)">M.Female</button>
                     </div>
-                    <div class="gender-label" id="genderLabel">Non-binary / ambiguous</div>
+                    <div class="gender-label" id="genderLabel">Non-binary</div>
                     <button type="button" class="gender-na-btn" id="genderNaBtn" onclick="setGender(-1)">Cannot determine</button>
                 </div>
 
@@ -211,6 +209,19 @@
                     <input class="form-control" id="fBodyType" placeholder="Optional observations...">
                 </div>
                 {% endif %}
+
+                {% if 'perceived_socioeconomic_status' in extra_fields %}
+                <div class="form-group">
+                    <label class="form-label">Perceived Socio-economic Status</label>
+                    <select class="form-control" id="fSocioeconomicStatus">
+                        <option value="">— Select —</option>
+                        <option>Working class</option>
+                        <option>Middle class</option>
+                        <option>Upper class</option>
+                        <option>Unclear or indeterminate</option>
+                    </select>
+                </div>
+                {% endif %}
             </div>
 
             <div class="form-group">
@@ -237,7 +248,7 @@ const GENDER_COLORS = {{ gender_colors | tojson }};
 const MST_COLORS = {{ mst_colors | tojson }};
 
 let formState = {
-    gender: 2,
+    gender: 1,
     skinTone: 0,
     numPeople: '1',
 };
@@ -326,6 +337,8 @@ async function saveAnnotation() {
     if (disField) data.perceived_disability = disField.value || null;
     const bodyField = document.getElementById('fBodyType');
     if (bodyField) data.body_type_notes = bodyField.value || null;
+    const socioField = document.getElementById('fSocioeconomicStatus');
+    if (socioField) data.perceived_socioeconomic_status = socioField.value || null;
 
     document.getElementById('saveStatus').innerHTML =
         '<span style="color:var(--blue)">Saving...</span>';
@@ -348,7 +361,7 @@ async function saveAnnotation() {
                 const s = result.stats;
                 const gStr = GENDER_SHORT.map((l, i) => l + ':' + (s.gender.counts[i] || 0)).join(' ');
                 document.getElementById('statGender').textContent = gStr;
-                document.getElementById('statMST').textContent = s.mst_spread + '/10';
+                document.getElementById('statMST').textContent = s.mst_spread + '/6';
             }
 
             // Add row to recent table

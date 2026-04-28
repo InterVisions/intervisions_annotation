@@ -123,10 +123,10 @@ function renderCharts(stats, isGlobal) {
             </div>`;
     });
     document.getElementById('skinChart').innerHTML = sHtml;
-    const darkCount = (stats.skin_tone || []).slice(7).reduce((s, v) => s + v, 0);
+    const darkCount = (stats.skin_tone || []).slice(3).reduce((s, v) => s + v, 0);
     const sWarn = document.getElementById('skinWarning');
     if (sTotal > 0 && darkCount < sTotal * 0.15) {
-        sWarn.style.display = 'block'; sWarn.textContent = '⚠ MST 8-10 under-represented';
+        sWarn.style.display = 'block'; sWarn.textContent = '⚠ Tones 4-6 under-represented';
     } else { sWarn.style.display = 'none'; }
 
     // Age
