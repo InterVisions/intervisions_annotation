@@ -19,7 +19,7 @@
             </span>
         </div>
         <div class="card" style="padding:8px 14px;margin:0;font-size:12px">
-            <span style="color:var(--gray-500)">MST: </span>
+            <span style="color:var(--gray-500)">FST: </span>
             <span id="statMST" style="font-weight:600">{{ stats.mst_spread }}/6</span>
         </div>
         {% if task.status == 'in_progress' %}
@@ -54,7 +54,7 @@
             <div style="overflow-x:auto">
                 <table class="ann-table" id="recentTable">
                     <thead><tr>
-                        <th>#</th><th>Gender</th><th>Age</th><th>MST</th><th>Lic.</th><th>Suit.</th>
+                        <th>#</th><th>Gender</th><th>Age</th><th>FST</th><th>Lic.</th><th>Suit.</th>
                     </tr></thead>
                     <tbody>
                     {% for a in annotations[:10] %}
@@ -161,25 +161,25 @@
                 <!-- Skin Tone -->
                 <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
                     <label class="form-label">
-                        Perceived Skin Tone <span class="form-hint">(Monk Scale)</span>
+                        Perceived Skin Tone <span class="form-hint">(Fitzpatrick Scale)</span>
                         <button type="button" class="mst-ref-toggle" onclick="toggleMSTRef()">Reference</button>
                     </label>
                     <div class="mst-selector">
                         {% for color in mst_colors %}
                         <button type="button" class="mst-btn" data-value="{{ loop.index }}"
-                            style="background:{{ color }}" title="MST {{ loop.index }}"
+                            style="background:{{ color }}" title="FST {{ loop.index }}"
                             onclick="setMST({{ loop.index }})"></button>
                         {% endfor %}
                         <button type="button" class="mst-na-btn" onclick="setMST(0)">?</button>
                     </div>
                     <div class="mst-label" id="mstLabel">Select a tone</div>
                     <div class="mst-reference" id="mstRef">
-                        <div style="font-weight:600;margin-bottom:8px;font-size:12px">Monk Skin Tone Scale Reference</div>
+                        <div style="font-weight:600;margin-bottom:8px;font-size:12px">Fitzpatrick Skin Tone Scale Reference</div>
                         <div class="mst-ref-grid">
                             {% for color in mst_colors %}
                             <div style="text-align:center">
                                 <div class="mst-ref-swatch" style="background:{{ color }}"></div>
-                                <div class="mst-ref-label">MST {{ loop.index }}</div>
+                                <div class="mst-ref-label">FST {{ loop.index }}</div>
                             </div>
                             {% endfor %}
                         </div>
@@ -275,7 +275,7 @@ function setMST(val) {
         b.classList.toggle('active', parseInt(b.dataset.value) === val);
     });
     document.getElementById('mstLabel').textContent =
-        val === 0 ? 'Cannot determine' : 'Selected: MST ' + val;
+        val === 0 ? 'Cannot determine' : 'Selected: FST ' + val;
 }
 
 function toggleMSTRef() {
