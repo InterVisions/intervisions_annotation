@@ -398,16 +398,17 @@ def api_preview_image():
     try:
         from urllib.parse import urlparse
         parsed = urlparse(image_url)
-        referer = f"{parsed.scheme}://{parsed.netloc}/"
-        resp = requests.get(image_url, timeout=10, headers={
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        # Use the root domain as referer (strip subdomains like cdn.)
+        parts = parsed.netloc.split(".")
+        root_domain = ".".join(parts[-2:]) if len(parts) > 2 else parsed.netloc
+        referer = f"{parsed.scheme}://www.{root_domain}/"
+        resp = requests.get(image_url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "Referer": referer,
-            "Sec-Fetch-Dest": "image",
-            "Sec-Fetch-Mode": "no-cors",
-            "Sec-Fetch-Site": "same-site",
+            "Connection": "keep-alive",
         })
         if resp.status_code != 200:
             return jsonify({"error": f"HTTP {resp.status_code}"}), 400
