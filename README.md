@@ -188,3 +188,8 @@ The database is pre-seeded with 8 campaigns and 42 terms from the InterVisions u
 
 - **Admin**: username `admin`, password `intervisions2025` (change in the service file before deploying)
 
+## Funding Acknowledgement
+
+![Co-funded by the European Union](eu-funded.png)
+
+Funded by the European Union. Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Education and Culture Executive Agency (EACEA). Neither the European Union nor EACEA can be held responsible for them.
