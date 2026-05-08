@@ -864,7 +864,7 @@ def api_export_csv():
 def api_update_annotation(ann_id):
     db = get_db()
     ann = db.execute("""
-        SELECT a.id, t.annotator_id FROM annotations a
+        SELECT a.id, a.image_url, a.image_path, t.annotator_id FROM annotations a
         JOIN tasks t ON a.task_id = t.id
         WHERE a.id = ?
     """, (ann_id,)).fetchone()
@@ -874,42 +874,146 @@ def api_update_annotation(ann_id):
         return jsonify({"error": "Forbidden"}), 403
 
     data = request.get_json()
-    db.execute("""
-        UPDATE annotations SET
-            concept_match = ?, num_people = ?, perceived_gender = ?,
-            perceived_age = ?, perceived_skin_tone = ?,
-            perceived_disability = ?, body_type_notes = ?,
-            perceived_socioeconomic_status = ?,
-            suitability = ?, suitability_reason = ?, intersectional_notes = ?,
-            p2_perceived_gender = ?, p2_perceived_age = ?, p2_perceived_skin_tone = ?,
-            p2_perceived_disability = ?, p2_body_type_notes = ?,
-            p2_perceived_socioeconomic_status = ?,
-            couple_relationship_type = ?, couple_interracial = ?
-        WHERE id = ?
-    """, (
-        data.get("concept_match"),
-        data.get("num_people"),
-        data.get("perceived_gender"),
-        data.get("perceived_age"),
-        data.get("perceived_skin_tone"),
-        data.get("perceived_disability") or None,
-        data.get("body_type_notes") or None,
-        data.get("perceived_socioeconomic_status") or None,
-        data.get("suitability"),
-        data.get("suitability_reason") or None,
-        data.get("intersectional_notes") or None,
-        data.get("p2_perceived_gender"),
-        data.get("p2_perceived_age") or None,
-        data.get("p2_perceived_skin_tone"),
-        data.get("p2_perceived_disability") or None,
-        data.get("p2_body_type_notes") or None,
-        data.get("p2_perceived_socioeconomic_status") or None,
-        data.get("couple_relationship_type") or None,
-        data.get("couple_interracial") or None,
-        ann_id,
-    ))
+
+    # Handle image URL change — attempt re-download if URL differs
+    new_url = (data.get("image_url") or "").strip()
+    img_url = ann["image_url"]
+    img_path = ann["image_path"]
+    img_width = img_height = img_size_kb = img_format = None
+    image_updated = False
+
+    if new_url and new_url != ann["image_url"]:
+        img_url = new_url
+        try:
+            resp = requests.get(new_url, timeout=15, stream=True,
+                                headers={"User-Agent": "InterVisions/1.0"})
+            if resp.status_code == 200:
+                content = resp.content
+                img_size_kb = len(content) // 1024
+                pil_img = PILImage.open(BytesIO(content))
+                img_width, img_height = pil_img.size
+                img_format = pil_img.format or "UNKNOWN"
+                ext = img_format.lower() if img_format else "jpg"
+                if ext == "jpeg":
+                    ext = "jpg"
+                fname = f"ann{ann_id}_{int(time.time())}_{secrets.token_hex(4)}.{ext}"
+                fpath = os.path.join(app.config["UPLOAD_FOLDER"], fname)
+                with open(fpath, "wb") as f:
+                    f.write(content)
+                # Delete old local file if it exists
+                if ann["image_path"]:
+                    old = os.path.join(app.config["UPLOAD_FOLDER"], ann["image_path"])
+                    try:
+                        if os.path.exists(old):
+                            os.remove(old)
+                    except Exception:
+                        pass
+                img_path = fname
+                image_updated = True
+        except Exception:
+            pass  # URL saved, but download failed — keep existing image data
+
+    # Build the UPDATE depending on whether image fields changed
+    if new_url and new_url != ann["image_url"]:
+        if image_updated:
+            db.execute("""
+                UPDATE annotations SET
+                    image_url = ?, image_path = ?, image_width = ?, image_height = ?,
+                    image_size_kb = ?, image_format = ?,
+                    concept_match = ?, num_people = ?, perceived_gender = ?,
+                    perceived_age = ?, perceived_skin_tone = ?,
+                    perceived_disability = ?, body_type_notes = ?,
+                    perceived_socioeconomic_status = ?,
+                    suitability = ?, suitability_reason = ?, intersectional_notes = ?,
+                    p2_perceived_gender = ?, p2_perceived_age = ?, p2_perceived_skin_tone = ?,
+                    p2_perceived_disability = ?, p2_body_type_notes = ?,
+                    p2_perceived_socioeconomic_status = ?,
+                    couple_relationship_type = ?, couple_interracial = ?
+                WHERE id = ?
+            """, (
+                img_url, img_path, img_width, img_height, img_size_kb, img_format,
+                data.get("concept_match"), data.get("num_people"), data.get("perceived_gender"),
+                data.get("perceived_age"), data.get("perceived_skin_tone"),
+                data.get("perceived_disability") or None, data.get("body_type_notes") or None,
+                data.get("perceived_socioeconomic_status") or None,
+                data.get("suitability"), data.get("suitability_reason") or None,
+                data.get("intersectional_notes") or None,
+                data.get("p2_perceived_gender"), data.get("p2_perceived_age") or None,
+                data.get("p2_perceived_skin_tone"),
+                data.get("p2_perceived_disability") or None, data.get("p2_body_type_notes") or None,
+                data.get("p2_perceived_socioeconomic_status") or None,
+                data.get("couple_relationship_type") or None, data.get("couple_interracial") or None,
+                ann_id,
+            ))
+        else:
+            # URL changed but download failed — update URL only, keep existing image data
+            db.execute("""
+                UPDATE annotations SET
+                    image_url = ?,
+                    concept_match = ?, num_people = ?, perceived_gender = ?,
+                    perceived_age = ?, perceived_skin_tone = ?,
+                    perceived_disability = ?, body_type_notes = ?,
+                    perceived_socioeconomic_status = ?,
+                    suitability = ?, suitability_reason = ?, intersectional_notes = ?,
+                    p2_perceived_gender = ?, p2_perceived_age = ?, p2_perceived_skin_tone = ?,
+                    p2_perceived_disability = ?, p2_body_type_notes = ?,
+                    p2_perceived_socioeconomic_status = ?,
+                    couple_relationship_type = ?, couple_interracial = ?
+                WHERE id = ?
+            """, (
+                img_url,
+                data.get("concept_match"), data.get("num_people"), data.get("perceived_gender"),
+                data.get("perceived_age"), data.get("perceived_skin_tone"),
+                data.get("perceived_disability") or None, data.get("body_type_notes") or None,
+                data.get("perceived_socioeconomic_status") or None,
+                data.get("suitability"), data.get("suitability_reason") or None,
+                data.get("intersectional_notes") or None,
+                data.get("p2_perceived_gender"), data.get("p2_perceived_age") or None,
+                data.get("p2_perceived_skin_tone"),
+                data.get("p2_perceived_disability") or None, data.get("p2_body_type_notes") or None,
+                data.get("p2_perceived_socioeconomic_status") or None,
+                data.get("couple_relationship_type") or None, data.get("couple_interracial") or None,
+                ann_id,
+            ))
+    else:
+        db.execute("""
+            UPDATE annotations SET
+                concept_match = ?, num_people = ?, perceived_gender = ?,
+                perceived_age = ?, perceived_skin_tone = ?,
+                perceived_disability = ?, body_type_notes = ?,
+                perceived_socioeconomic_status = ?,
+                suitability = ?, suitability_reason = ?, intersectional_notes = ?,
+                p2_perceived_gender = ?, p2_perceived_age = ?, p2_perceived_skin_tone = ?,
+                p2_perceived_disability = ?, p2_body_type_notes = ?,
+                p2_perceived_socioeconomic_status = ?,
+                couple_relationship_type = ?, couple_interracial = ?
+            WHERE id = ?
+        """, (
+            data.get("concept_match"), data.get("num_people"), data.get("perceived_gender"),
+            data.get("perceived_age"), data.get("perceived_skin_tone"),
+            data.get("perceived_disability") or None, data.get("body_type_notes") or None,
+            data.get("perceived_socioeconomic_status") or None,
+            data.get("suitability"), data.get("suitability_reason") or None,
+            data.get("intersectional_notes") or None,
+            data.get("p2_perceived_gender"), data.get("p2_perceived_age") or None,
+            data.get("p2_perceived_skin_tone"),
+            data.get("p2_perceived_disability") or None, data.get("p2_body_type_notes") or None,
+            data.get("p2_perceived_socioeconomic_status") or None,
+            data.get("couple_relationship_type") or None, data.get("couple_interracial") or None,
+            ann_id,
+        ))
+
     db.commit()
-    return jsonify({"ok": True})
+    return jsonify({
+        "ok": True,
+        "image_updated": image_updated,
+        "image_path": img_path,
+        "image_url": img_url,
+        "image_width": img_width,
+        "image_height": img_height,
+        "image_size_kb": img_size_kb,
+        "image_format": img_format,
+    })
 
 # ─── Admin: Dataset Viewer ─────────────────────────────────────────────────
 

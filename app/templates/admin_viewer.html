@@ -402,6 +402,14 @@ main.container { max-width: 1500px; }
         </div>
         <!-- Edit form -->
         <div id="editPanel" class="edit-form">
+          <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--gray-200)">
+            <div class="ef-label">Image URL</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+              <input type="url" class="ef-input" id="ef-image_url" placeholder="https://…" style="flex:1">
+              <span id="ef-url-status" style="font-size:11px;white-space:nowrap;color:var(--gray-500)"></span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:3px">Leave unchanged to keep the current image. A new URL will trigger a re-download.</div>
+          </div>
           <div class="ef-grid">
             <div>
               <div class="ef-label">Concept match</div>
@@ -675,6 +683,8 @@ function enterEditMode() {
   if (!d) return;
 
   // Populate form fields from current annotation data
+  document.getElementById('ef-image_url').value = d.image_url || '';
+  document.getElementById('ef-url-status').textContent = '';
   setRadio('ef_concept_match', d.concept_match === 'Yes' ? 'Yes' : 'No');
   document.getElementById('ef-num_people').value = d.num_people || '1';
   setRadio('ef_gender', d.perceived_gender !== null ? String(d.perceived_gender) : '2');
@@ -729,7 +739,14 @@ async function saveEdit() {
   btn.textContent = 'Saving…';
   msg.textContent = '';
 
+  const newUrl = document.getElementById('ef-image_url').value.trim();
+  const urlChanged = newUrl && newUrl !== d.image_url;
+  if (urlChanged) {
+    document.getElementById('ef-url-status').textContent = 'Downloading…';
+  }
+
   const payload = {
+    image_url:       newUrl || d.image_url,
     concept_match:   document.querySelector('input[name="ef_concept_match"]:checked')?.value,
     num_people:      document.getElementById('ef-num_people').value,
     perceived_gender: parseInt(document.querySelector('input[name="ef_gender"]:checked')?.value ?? '2'),
@@ -753,12 +770,38 @@ async function saveEdit() {
     if (!resp.ok || json.error) {
       msg.textContent = json.error || 'Save failed';
       msg.style.color = 'var(--orange)';
+      document.getElementById('ef-url-status').textContent = '';
     } else {
-      // Update local data store so the view re-renders correctly
+      // Update local data store
       Object.assign(d, payload);
+      if (json.image_url)   d.image_url   = json.image_url;
+      if (json.image_path)  d.image_path  = json.image_path;
+      if (json.image_width) d.image_width = json.image_width;
+      if (json.image_height) d.image_height = json.image_height;
+      if (json.image_size_kb) d.image_size_kb = json.image_size_kb;
+      if (json.image_format)  d.image_format  = json.image_format;
+
+      // Show download result in URL status
+      if (urlChanged) {
+        document.getElementById('ef-url-status').textContent =
+          json.image_updated ? '✓ Downloaded' : '⚠ URL saved, download failed';
+      }
+
       exitEditMode();
+      // Re-render modal image if it changed
+      if (json.image_updated && json.image_path) {
+        const img = document.getElementById('modalImg');
+        img.src = '/images/' + json.image_path;
+        img.style.display = '';
+        document.getElementById('modalNoImg').style.display = 'none';
+        const meta = [];
+        if (json.image_width && json.image_height) meta.push(json.image_width + '×' + json.image_height + ' px');
+        if (json.image_size_kb) meta.push(json.image_size_kb + ' KB');
+        if (json.image_format) meta.push(json.image_format);
+        document.getElementById('modalImgMeta').textContent = meta.join(' · ');
+      }
+      document.getElementById('modalImgLink').href = d.image_url;
       renderModalView(d);
-      // Also update the table row badge inline
       updateTableRow(currentAnnotationId, d);
     }
   } catch(e) {
