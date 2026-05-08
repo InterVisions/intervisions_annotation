@@ -253,7 +253,7 @@
             <div style="background:#f8f0ff;border-radius:8px;padding:12px;border:1px solid #e0c8f8;margin-bottom:12px">
                 <div style="font-weight:700;font-size:13px;color:#7c3aed;margin-bottom:10px">About the couple</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div class="form-group" style="margin:0">
+                    <div class="form-group" style="margin:0;grid-column:1/-1">
                         <label class="form-label" style="font-size:11px">Perceived relationship type</label>
                         <select class="form-control" id="fCoupleRelationship" style="font-size:12px">
                             <option value="">— Select —</option>
@@ -261,15 +261,6 @@
                             <option>Same-sex (male)</option>
                             <option>Same-sex (female)</option>
                             <option>Same-sex (non-binary)</option>
-                            <option>Cannot determine</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin:0">
-                        <label class="form-label" style="font-size:11px">Interracial couple?</label>
-                        <select class="form-control" id="fCoupleInterracial" style="font-size:12px">
-                            <option value="">— Select —</option>
-                            <option>Yes (different skin tones)</option>
-                            <option>No (similar skin tones)</option>
                             <option>Cannot determine</option>
                         </select>
                     </div>
@@ -578,7 +569,6 @@ async function saveAnnotation() {
         data.p2_perceived_skin_tone = formState.p2SkinTone;
         data.perceived_age         = document.getElementById('fAge1').value || null;
         data.couple_relationship_type = document.getElementById('fCoupleRelationship').value || null;
-        data.couple_interracial    = document.getElementById('fCoupleInterracial').value || null;
         {% if 'perceived_disability' in extra_fields %}
         data.perceived_disability  = document.getElementById('fDisability1').value || null;
         {% endif %}
