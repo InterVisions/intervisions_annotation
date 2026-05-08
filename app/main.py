@@ -787,6 +787,24 @@ def api_restore_config():
         flash(f"Restore failed: {e}", "error")
     return redirect(url_for("admin_settings"))
 
+@app.route("/api/annotation/<int:ann_id>/delete", methods=["POST"])
+@admin_required
+def api_delete_annotation(ann_id):
+    db = get_db()
+    ann = db.execute("SELECT image_path FROM annotations WHERE id = ?", (ann_id,)).fetchone()
+    if not ann:
+        return jsonify({"error": "Not found"}), 404
+    if ann["image_path"]:
+        try:
+            img_file = os.path.join(app.config["UPLOAD_FOLDER"], ann["image_path"])
+            if os.path.exists(img_file):
+                os.remove(img_file)
+        except Exception:
+            pass
+    db.execute("DELETE FROM annotations WHERE id = ?", (ann_id,))
+    db.commit()
+    return jsonify({"ok": True})
+
 @app.route("/api/admin/export")
 @admin_required
 def api_export_csv():

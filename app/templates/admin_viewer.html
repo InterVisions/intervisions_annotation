@@ -168,6 +168,17 @@ main.container { max-width: 1500px; }
 .btn-cancel-edit { background: var(--gray-200); color: #333; border: none; padding: 7px 16px; border-radius: 6px; font-family: inherit; font-size: 13px; cursor: pointer; }
 .btn-edit { background: var(--orange-light); color: var(--orange); border: 1px solid #f0c080; padding: 5px 14px; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .btn-edit:hover { background: #ffe0b0; }
+.btn-delete { background: #fce4ec; color: #c62828; border: 1px solid #f8bbd0; padding: 5px 14px; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-delete:hover { background: #ffcdd2; }
+.delete-confirm-bar {
+    display: none; padding: 10px 20px; background: #fff3f3;
+    border-bottom: 1px solid #ffcdd2;
+    align-items: center; gap: 10px; font-size: 13px;
+}
+.delete-confirm-bar.open { display: flex; }
+.btn-delete-confirm { background: #c62828; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-delete-confirm:hover { background: #b71c1c; }
+.btn-cancel-delete { background: var(--gray-200); color: #333; border: none; padding: 6px 14px; border-radius: 6px; font-family: inherit; font-size: 12px; cursor: pointer; }
 </style>
 {% endblock %}
 
@@ -366,10 +377,16 @@ main.container { max-width: 1500px; }
   <div class="modal-box">
     <div class="modal-header">
       <h3 id="modalTitle">Annotation detail</h3>
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
         <button class="btn-edit" id="modalEditBtn" onclick="enterEditMode()" style="display:none">Edit</button>
+        <button class="btn-delete" id="modalDeleteBtn" onclick="startDelete()" style="display:none">Delete</button>
         <button class="modal-close" onclick="closeModal()">&#x2715;</button>
       </div>
+    </div>
+    <div class="delete-confirm-bar" id="deleteConfirmBar">
+      <span style="color:#c62828;font-weight:500">Permanently delete this annotation?</span>
+      <button class="btn-delete-confirm" onclick="confirmDelete()">Yes, delete</button>
+      <button class="btn-cancel-delete" onclick="cancelDelete()">Cancel</button>
     </div>
     <div class="modal-body">
       <div class="modal-image-col">
@@ -537,6 +554,9 @@ function openModal(id) {
   // Show edit button if user owns this annotation or is admin
   const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
   document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
+  // Show delete button for admins only
+  document.getElementById('modalDeleteBtn').style.display = IS_ADMIN ? '' : 'none';
+  cancelDelete();
 
   const img = document.getElementById('modalImg');
   const noImg = document.getElementById('modalNoImg');
@@ -604,8 +624,50 @@ function openModal(id) {
 
 function closeModal() {
   exitEditMode();
+  cancelDelete();
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+function startDelete() {
+  exitEditMode();
+  document.getElementById('deleteConfirmBar').classList.add('open');
+  document.getElementById('modalDeleteBtn').style.display = 'none';
+  document.getElementById('modalEditBtn').style.display = 'none';
+}
+
+function cancelDelete() {
+  document.getElementById('deleteConfirmBar').classList.remove('open');
+  if (currentAnnotationId) {
+    const d = ANNOTATIONS[currentAnnotationId];
+    document.getElementById('modalDeleteBtn').style.display = IS_ADMIN ? '' : 'none';
+    const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d && d.annotator_user_id === CURRENT_USER_ID);
+    document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
+  }
+}
+
+async function confirmDelete() {
+  const btn = document.querySelector('.btn-delete-confirm');
+  btn.textContent = 'Deleting…';
+  btn.disabled = true;
+  try {
+    const resp = await fetch(`/api/annotation/${currentAnnotationId}/delete`, { method: 'POST' });
+    const json = await resp.json();
+    if (resp.ok && json.ok) {
+      // Remove table row
+      const row = document.querySelector(`tr[onclick="openModal(${currentAnnotationId})"]`);
+      if (row) row.remove();
+      // Remove from local data store
+      delete ANNOTATIONS[currentAnnotationId];
+      closeModal();
+    } else {
+      btn.textContent = json.error || 'Error';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = 'Network error';
+    btn.disabled = false;
+  }
 }
 
 function enterEditMode() {
@@ -644,10 +706,11 @@ function enterEditMode() {
 function exitEditMode() {
   document.getElementById('viewPanel').classList.remove('hidden');
   document.getElementById('editPanel').classList.remove('active');
-  if (currentAnnotationId) {
+  if (currentAnnotationId && ANNOTATIONS[currentAnnotationId]) {
     const d = ANNOTATIONS[currentAnnotationId];
-    const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d && d.annotator_user_id === CURRENT_USER_ID);
+    const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
     document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
+    document.getElementById('modalDeleteBtn').style.display = IS_ADMIN ? '' : 'none';
   }
 }
 
