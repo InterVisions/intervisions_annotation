@@ -789,6 +789,48 @@ def api_export_csv():
         headers={"Content-Disposition": "attachment; filename=intervisions_annotations.csv"}
     )
 
+# ─── API: Edit annotation ──────────────────────────────────────────────────
+
+@app.route("/api/annotation/<int:ann_id>/update", methods=["POST"])
+@login_required
+def api_update_annotation(ann_id):
+    db = get_db()
+    ann = db.execute("""
+        SELECT a.id, t.annotator_id FROM annotations a
+        JOIN tasks t ON a.task_id = t.id
+        WHERE a.id = ?
+    """, (ann_id,)).fetchone()
+    if not ann:
+        return jsonify({"error": "Not found"}), 404
+    if session.get("role") != "admin" and ann["annotator_id"] != session["user_id"]:
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.get_json()
+    db.execute("""
+        UPDATE annotations SET
+            concept_match = ?, num_people = ?, perceived_gender = ?,
+            perceived_age = ?, perceived_skin_tone = ?,
+            perceived_disability = ?, body_type_notes = ?,
+            perceived_socioeconomic_status = ?,
+            suitability = ?, suitability_reason = ?, intersectional_notes = ?
+        WHERE id = ?
+    """, (
+        data.get("concept_match"),
+        data.get("num_people"),
+        data.get("perceived_gender"),
+        data.get("perceived_age"),
+        data.get("perceived_skin_tone"),
+        data.get("perceived_disability") or None,
+        data.get("body_type_notes") or None,
+        data.get("perceived_socioeconomic_status") or None,
+        data.get("suitability"),
+        data.get("suitability_reason") or None,
+        data.get("intersectional_notes") or None,
+        ann_id,
+    ))
+    db.commit()
+    return jsonify({"ok": True})
+
 # ─── Admin: Dataset Viewer ─────────────────────────────────────────────────
 
 @app.route("/admin/viewer")

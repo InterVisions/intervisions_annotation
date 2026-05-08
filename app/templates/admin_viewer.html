@@ -138,6 +138,36 @@ main.container { max-width: 1500px; }
     grid-column: 1 / -1; background: var(--gray-100); border-radius: 6px;
     padding: 8px 10px; font-size: 12px; color: #555; margin-top: 2px; line-height: 1.5;
 }
+
+/* Edit form inside modal */
+.edit-form { display: none; }
+.edit-form.active { display: block; }
+.view-panel.hidden { display: none; }
+.ef-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+.ef-full { grid-column: 1 / -1; }
+.ef-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-500); margin-bottom: 3px; }
+.ef-select, .ef-input, .ef-textarea {
+    font-family: inherit; font-size: 13px; width: 100%;
+    padding: 6px 9px; border: 1px solid var(--gray-300); border-radius: 6px;
+    background: var(--white); color: #333;
+}
+.ef-textarea { resize: vertical; min-height: 60px; }
+.ef-radio-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.ef-radio-group label {
+    display: flex; align-items: center; gap: 5px; cursor: pointer;
+    font-size: 12px; padding: 4px 8px; border-radius: 5px;
+    border: 1px solid var(--gray-300); background: var(--white);
+    transition: all 0.1s;
+}
+.ef-radio-group input[type=radio] { display: none; }
+.ef-radio-group input[type=radio]:checked + span { font-weight: 700; }
+.ef-radio-group label:has(input:checked) { border-color: var(--blue); background: var(--blue-light); }
+.ef-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--gray-200); }
+.btn-save { background: var(--blue); color: #fff; border: none; padding: 7px 20px; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-cancel-edit { background: var(--gray-200); color: #333; border: none; padding: 7px 16px; border-radius: 6px; font-family: inherit; font-size: 13px; cursor: pointer; }
+.btn-edit { background: var(--orange-light); color: var(--orange); border: 1px solid #f0c080; padding: 5px 14px; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-edit:hover { background: #ffe0b0; }
 </style>
 {% endblock %}
 
@@ -336,7 +366,10 @@ main.container { max-width: 1500px; }
   <div class="modal-box">
     <div class="modal-header">
       <h3 id="modalTitle">Annotation detail</h3>
-      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn-edit" id="modalEditBtn" onclick="enterEditMode()" style="display:none">Edit</button>
+        <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+      </div>
     </div>
     <div class="modal-body">
       <div class="modal-image-col">
@@ -346,7 +379,98 @@ main.container { max-width: 1500px; }
         <div class="modal-image-meta" id="modalImgMeta"></div>
       </div>
       <div class="modal-fields-col">
-        <div class="modal-field-grid" id="modalFields"></div>
+        <!-- Read-only view -->
+        <div id="viewPanel" class="view-panel">
+          <div class="modal-field-grid" id="modalFields"></div>
+        </div>
+        <!-- Edit form -->
+        <div id="editPanel" class="edit-form">
+          <div class="ef-grid">
+            <div>
+              <div class="ef-label">Concept match</div>
+              <div class="ef-radio-group" id="ef-concept_match">
+                <label><input type="radio" name="ef_concept_match" value="Yes"><span>Yes</span></label>
+                <label><input type="radio" name="ef_concept_match" value="No"><span>No</span></label>
+              </div>
+            </div>
+            <div>
+              <div class="ef-label"># People</div>
+              <select class="ef-select" id="ef-num_people">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5+">5+</option>
+              </select>
+            </div>
+            <div class="ef-full">
+              <div class="ef-label">Gender</div>
+              <div class="ef-radio-group" id="ef-perceived_gender">
+                <label><input type="radio" name="ef_gender" value="0"><span style="color:#4A8BC2">More maleness</span></label>
+                <label><input type="radio" name="ef_gender" value="1"><span style="color:#A0A0A0">Non-binary</span></label>
+                <label><input type="radio" name="ef_gender" value="2"><span style="color:#C77DBA">More femaleness</span></label>
+              </div>
+            </div>
+            <div>
+              <div class="ef-label">Age</div>
+              <select class="ef-select" id="ef-perceived_age">
+                <option value="Child (0-12)">Child (0-12)</option>
+                <option value="Adolescent (13-17)">Adolescent (13-17)</option>
+                <option value="Young adult (18-30)">Young adult (18-30)</option>
+                <option value="Middle-aged (31-60)">Middle-aged (31-60)</option>
+                <option value="Older adult (60+)">Older adult (60+)</option>
+                <option value="Cannot determine">Cannot determine</option>
+              </select>
+            </div>
+            <div>
+              <div class="ef-label">Skin tone (FST 1–6)</div>
+              <div class="ef-radio-group" id="ef-perceived_skin_tone">
+                {% set mst_c = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'] %}
+                {% for i in range(1, 7) %}
+                <label title="FST {{ i }}">
+                  <input type="radio" name="ef_skin" value="{{ i }}">
+                  <span style="display:inline-flex;align-items:center;gap:4px">
+                    <span style="width:12px;height:12px;border-radius:50%;background:{{ mst_c[i-1] }};border:1px solid rgba(0,0,0,0.2);display:inline-block"></span>{{ i }}
+                  </span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="ef-full">
+              <div class="ef-label">Suitability</div>
+              <div class="ef-radio-group" id="ef-suitability">
+                <label><input type="radio" name="ef_suitability" value="Suitable"><span style="color:#2e7d32">Suitable</span></label>
+                <label><input type="radio" name="ef_suitability" value="Not Suitable"><span style="color:#c62828">Not Suitable</span></label>
+              </div>
+            </div>
+            <div class="ef-full" id="ef-suitability_reason_wrap" style="display:none">
+              <div class="ef-label">Suitability reason</div>
+              <input type="text" class="ef-input" id="ef-suitability_reason" placeholder="Why is it not suitable?">
+            </div>
+            <div>
+              <div class="ef-label">Disability (optional)</div>
+              <input type="text" class="ef-input" id="ef-perceived_disability" placeholder="">
+            </div>
+            <div>
+              <div class="ef-label">Body type notes (optional)</div>
+              <input type="text" class="ef-input" id="ef-body_type_notes" placeholder="">
+            </div>
+            <div class="ef-full">
+              <div class="ef-label">Socioeconomic status (optional)</div>
+              <input type="text" class="ef-input" id="ef-perceived_socioeconomic_status" placeholder="">
+            </div>
+            <div class="ef-full">
+              <div class="ef-label">Intersectional notes (optional)</div>
+              <textarea class="ef-textarea" id="ef-intersectional_notes" placeholder=""></textarea>
+            </div>
+          </div>
+          <div class="ef-actions">
+            <button class="btn-save" id="efSaveBtn" onclick="saveEdit()">Save changes</button>
+            <button class="btn-cancel-edit" onclick="exitEditMode()">Cancel</button>
+            <span id="efMsg" style="font-size:12px;color:var(--gray-500);align-self:center"></span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -356,6 +480,10 @@ main.container { max-width: 1500px; }
 const MST_COLORS = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'];
 const GENDER_LABELS = ['More maleness','Non-binary','More femaleness'];
 const GENDER_COLORS = ['#4A8BC2','#A0A0A0','#C77DBA'];
+const CURRENT_USER_ID = {{ current_user.id if current_user else 'null' }};
+const IS_ADMIN = {{ 'true' if session.get('role') == 'admin' else 'false' }};
+
+let currentAnnotationId = null;
 
 const ANNOTATIONS = {
 {% for ann in annotations %}
@@ -371,6 +499,7 @@ const ANNOTATIONS = {
     term: {{ ann.term | tojson }},
     campaign: {{ (ann.campaign_id ~ ' – ' ~ ann.campaign_name) | tojson }},
     annotator: {{ ann.annotator_name | tojson }},
+    annotator_user_id: {{ ann.annotator_user_id }},
     concept_match: {{ (ann.concept_match or '–') | tojson }},
     num_people: {{ (ann.num_people | string) | tojson }},
     perceived_gender: {{ ann.perceived_gender if ann.perceived_gender is not none else 'null' }},
@@ -391,7 +520,14 @@ function openModal(id) {
   const d = ANNOTATIONS[id];
   if (!d) return;
 
-  document.getElementById('modalTitle').textContent = '“' + d.term + '”  ·  #' + d.id;
+  currentAnnotationId = id;
+  exitEditMode();
+
+  document.getElementById('modalTitle').textContent = '”' + d.term + '”  ·  #' + d.id;
+
+  // Show edit button if user owns this annotation or is admin
+  const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
+  document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
 
   const img = document.getElementById('modalImg');
   const noImg = document.getElementById('modalNoImg');
@@ -458,8 +594,163 @@ function openModal(id) {
 }
 
 function closeModal() {
+  exitEditMode();
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+function enterEditMode() {
+  const d = ANNOTATIONS[currentAnnotationId];
+  if (!d) return;
+
+  // Populate form fields from current annotation data
+  setRadio('ef_concept_match', d.concept_match === 'Yes' ? 'Yes' : 'No');
+  document.getElementById('ef-num_people').value = d.num_people || '1';
+  setRadio('ef_gender', d.perceived_gender !== null ? String(d.perceived_gender) : '2');
+  document.getElementById('ef-perceived_age').value = d.perceived_age || 'Cannot determine';
+  setRadio('ef_skin', d.perceived_skin_tone ? String(d.perceived_skin_tone) : '1');
+  setRadio('ef_suitability', d.suitability === 'Not Suitable' ? 'Not Suitable' : 'Suitable');
+  document.getElementById('ef-suitability_reason').value = d.suitability_reason || '';
+  document.getElementById('ef-suitability_reason_wrap').style.display =
+    d.suitability === 'Not Suitable' ? '' : 'none';
+  document.getElementById('ef-perceived_disability').value = d.perceived_disability || '';
+  document.getElementById('ef-body_type_notes').value = d.body_type_notes || '';
+  document.getElementById('ef-perceived_socioeconomic_status').value = d.perceived_socioeconomic_status || '';
+  document.getElementById('ef-intersectional_notes').value = d.intersectional_notes || '';
+
+  document.getElementById('efMsg').textContent = '';
+  document.getElementById('viewPanel').classList.add('hidden');
+  document.getElementById('editPanel').classList.add('active');
+  document.getElementById('modalEditBtn').style.display = 'none';
+
+  // Toggle suitability reason visibility
+  document.querySelectorAll('input[name="ef_suitability"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('ef-suitability_reason_wrap').style.display =
+        r.value === 'Not Suitable' ? '' : 'none';
+    });
+  });
+}
+
+function exitEditMode() {
+  document.getElementById('viewPanel').classList.remove('hidden');
+  document.getElementById('editPanel').classList.remove('active');
+  if (currentAnnotationId) {
+    const d = ANNOTATIONS[currentAnnotationId];
+    const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d && d.annotator_user_id === CURRENT_USER_ID);
+    document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
+  }
+}
+
+function setRadio(name, value) {
+  const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (el) el.checked = true;
+}
+
+async function saveEdit() {
+  const d = ANNOTATIONS[currentAnnotationId];
+  if (!d) return;
+
+  const btn = document.getElementById('efSaveBtn');
+  const msg = document.getElementById('efMsg');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  msg.textContent = '';
+
+  const payload = {
+    concept_match:   document.querySelector('input[name="ef_concept_match"]:checked')?.value,
+    num_people:      document.getElementById('ef-num_people').value,
+    perceived_gender: parseInt(document.querySelector('input[name="ef_gender"]:checked')?.value ?? '2'),
+    perceived_age:   document.getElementById('ef-perceived_age').value,
+    perceived_skin_tone: parseInt(document.querySelector('input[name="ef_skin"]:checked')?.value ?? '0'),
+    suitability:     document.querySelector('input[name="ef_suitability"]:checked')?.value,
+    suitability_reason: document.getElementById('ef-suitability_reason').value.trim(),
+    perceived_disability: document.getElementById('ef-perceived_disability').value.trim(),
+    body_type_notes: document.getElementById('ef-body_type_notes').value.trim(),
+    perceived_socioeconomic_status: document.getElementById('ef-perceived_socioeconomic_status').value.trim(),
+    intersectional_notes: document.getElementById('ef-intersectional_notes').value.trim(),
+  };
+
+  try {
+    const resp = await fetch(`/api/annotation/${currentAnnotationId}/update`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const json = await resp.json();
+    if (!resp.ok || json.error) {
+      msg.textContent = json.error || 'Save failed';
+      msg.style.color = 'var(--orange)';
+    } else {
+      // Update local data store so the view re-renders correctly
+      Object.assign(d, payload);
+      exitEditMode();
+      renderModalView(d);
+      // Also update the table row badge inline
+      updateTableRow(currentAnnotationId, d);
+    }
+  } catch(e) {
+    msg.textContent = 'Network error';
+    msg.style.color = 'var(--orange)';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Save changes';
+}
+
+function renderModalView(d) {
+  const genderHtml = d.perceived_gender !== null
+    ? `<span style="background:${GENDER_COLORS[d.perceived_gender]}22;color:${GENDER_COLORS[d.perceived_gender]};padding:2px 8px;border-radius:4px;font-weight:600">${GENDER_LABELS[d.perceived_gender]}</span>`
+    : '–';
+  const skinHtml = d.perceived_skin_tone
+    ? `<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${MST_COLORS[d.perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:4px"></span>FST ${d.perceived_skin_tone}`
+    : '–';
+  const matchHtml = `<span style="background:${d.concept_match==='Yes'?'#e8f5e9':'#fce4ec'};color:${d.concept_match==='Yes'?'#2e7d32':'#c62828'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${d.concept_match}</span>`;
+  const suitHtml  = `<span style="background:${d.suitability==='Suitable'?'#e8f5e9':'#fce4ec'};color:${d.suitability==='Suitable'?'#2e7d32':'#c62828'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${d.suitability}</span>`;
+
+  const fields = [
+    ['Campaign', d.campaign], ['Term', d.term], ['Annotator', d.annotator],
+    ['Concept match', matchHtml], ['Suitability', suitHtml],
+    ['# People', d.num_people], ['Gender', genderHtml],
+    ['Age', d.perceived_age], ['Skin tone', skinHtml],
+    ['Disability', d.perceived_disability || '–'],
+    ['Body type', d.body_type_notes || '–'],
+    ['Soc. status', d.perceived_socioeconomic_status || '–'],
+    ['Annotated', d.created_at ? d.created_at.slice(0,16).replace('T',' ') : '–'],
+  ];
+
+  let html = fields.map(([label, val]) =>
+    `<div class="mf"><div class="mf-label">${label}</div><div class="mf-value">${val}</div></div>`
+  ).join('');
+  if (d.suitability_reason)
+    html += `<div style="grid-column:1/-1"><div class="mf-label">Suitability reason</div><div class="mf-notes">${d.suitability_reason}</div></div>`;
+  if (d.intersectional_notes)
+    html += `<div style="grid-column:1/-1"><div class="mf-label">Intersectional notes</div><div class="mf-notes">${d.intersectional_notes}</div></div>`;
+
+  document.getElementById('modalFields').innerHTML = html;
+}
+
+function updateTableRow(id, d) {
+  // Update gender, skin, match, suitability cells in the visible table row
+  const row = document.querySelector(`tr[onclick="openModal(${id})"]`);
+  if (!row) return;
+  const cells = row.querySelectorAll('td');
+  // cells: thumb(0), term(1), campaign(2), annotator(3), people(4), gender(5), age(6), skin(7), match(8), suit(9), date(10)
+  if (cells[4]) cells[4].textContent = d.num_people;
+  if (cells[5]) {
+    const g = d.perceived_gender;
+    cells[5].innerHTML = g !== null
+      ? `<span class="gender-pill" style="background:${GENDER_COLORS[g]}22;color:${GENDER_COLORS[g]}"><span style="width:7px;height:7px;border-radius:50%;background:${GENDER_COLORS[g]};display:inline-block"></span>${['M.Male','N-B','M.Female'][g]}</span>`
+      : '–';
+  }
+  if (cells[6]) cells[6].textContent = d.perceived_age || '–';
+  if (cells[7]) {
+    cells[7].innerHTML = d.perceived_skin_tone
+      ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${MST_COLORS[d.perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span>${d.perceived_skin_tone}`
+      : '–';
+  }
+  if (cells[8]) cells[8].innerHTML = `<span class="vbadge ${d.concept_match==='Yes'?'yes':'no'}">${d.concept_match}</span>`;
+  if (cells[9]) cells[9].innerHTML = `<span class="vbadge ${d.suitability==='Suitable'?'suit':'nosuit'}">${d.suitability==='Suitable'?'OK':'No'}</span>`;
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
