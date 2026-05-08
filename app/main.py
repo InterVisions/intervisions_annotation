@@ -539,7 +539,7 @@ def admin_dataset():
         campaigns=campaigns, totals=totals, tab="dataset")
 
 @app.route("/admin/balance")
-@admin_required
+@login_required
 def admin_balance():
     db = get_db()
     # Get terms that have annotations
@@ -552,7 +552,7 @@ def admin_balance():
     return render_template("admin_balance.html", active_terms=active_terms, tab="balance")
 
 @app.route("/api/admin/stats")
-@admin_required
+@login_required
 def api_admin_stats():
     """Get balance stats, optionally filtered by term."""
     db = get_db()
