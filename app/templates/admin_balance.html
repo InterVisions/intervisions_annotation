@@ -46,9 +46,8 @@
 <h2 style="margin-bottom:12px">Balancing</h2>
 
 <div class="term-filter">
-    <button class="term-filter-btn active" data-term="" onclick="filterTerm(this, '')">Global</button>
     {% for t in active_terms %}
-    <button class="term-filter-btn" data-term="{{ t.id }}" onclick="filterTerm(this, '{{ t.id }}')">{{ t.term }}</button>
+    <button class="term-filter-btn{% if loop.first %} active{% endif %}" data-term="{{ t.id }}" onclick="filterTerm(this, '{{ t.id }}')">{{ t.term }}</button>
     {% endfor %}
 </div>
 
@@ -110,18 +109,13 @@ async function filterTerm(btn, termId) {
     currentTerm = termId;
 
     const info = document.getElementById('termInfo');
-    if (termId) {
-        info.style.display = 'block';
-        info.innerHTML = `Stats for: <strong>"${btn.textContent.trim()}"</strong>`;
-    } else {
-        info.style.display = 'none';
-    }
+    info.style.display = 'block';
+    info.innerHTML = `Stats for: <strong>"${btn.textContent.trim()}"</strong>`;
 
-    const url = termId ? `/api/admin/stats?term_id=${termId}` : '/api/admin/stats';
     try {
-        const resp = await fetch(url);
+        const resp = await fetch(`/api/admin/stats?term_id=${termId}`);
         const stats = await resp.json();
-        renderCharts(stats, !termId);
+        renderCharts(stats, false);
     } catch (e) {
         console.error('Failed to load stats:', e);
     }
@@ -381,15 +375,6 @@ function renderFourthChart(stats, isGlobal, isCouple) {
                 </div>
             </div>
             ${warnings}`;
-    } else if (isGlobal) {
-        fourth.innerHTML = `
-            <div class="chart-title">Fraser Dimensions</div>
-            <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">
-                Distribution of annotated images across dimensions (based on campaign assignment).
-            </p>
-            <p style="font-size:13px;color:var(--gray-600)">
-                <strong>Total images:</strong> ${stats.total}
-            </p>`;
     } else {
         const gTotal = (stats.gender.counts || []).reduce((s, v) => s + v, 0);
         const gImb = (stats.gender.counts || []).some(c => gTotal > 0 && c / gTotal > 0.6);
@@ -404,10 +389,11 @@ function renderFourthChart(stats, isGlobal, isCouple) {
     }
 }
 
-// Load initial global stats
+// Load first term on page load
 {% if active_terms %}
 document.addEventListener('DOMContentLoaded', () => {
-    filterTerm(document.querySelector('.term-filter-btn'), '');
+    const first = document.querySelector('.term-filter-btn');
+    if (first) filterTerm(first, first.dataset.term);
 });
 {% endif %}
 </script>
