@@ -310,7 +310,7 @@ main.container { max-width: 1500px; }
         </span>
         {% if ann.annotation_type == 'couple' and ann.p2_perceived_gender is not none %}
           {% set g2 = ann.p2_perceived_gender %}
-          <br><span class="gender-pill" style="background:{{ gcols[g2] }}22;color:{{ gcols[g2] }};font-size:10px;margin-top:2px">
+          <br><span class="gender-pill" style="background:{{ gcols[g2] }}22;color:{{ gcols[g2] }};margin-top:2px">
             <span style="width:6px;height:6px;border-radius:50%;background:{{ gcols[g2] }};display:inline-block"></span>{{ glbls[g2] }}
           </span>
         {% endif %}
@@ -319,7 +319,7 @@ main.container { max-width: 1500px; }
     <td style="font-size:11px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
       <span title="{{ ann.perceived_age }}">{{ ann.perceived_age or '–' }}</span>
       {% if ann.annotation_type == 'couple' and ann.p2_perceived_age %}
-        <br><span style="color:var(--orange);font-size:10px" title="{{ ann.p2_perceived_age }}">{{ ann.p2_perceived_age }}</span>
+        <br><span style="color:var(--orange)" title="{{ ann.p2_perceived_age }}">{{ ann.p2_perceived_age }}</span>
       {% endif %}
     </td>
     <td>
@@ -328,7 +328,7 @@ main.container { max-width: 1500px; }
         <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:{{ mst_colors[mst-1] }};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span>{{ mst }}
         {% if ann.annotation_type == 'couple' and ann.p2_perceived_skin_tone and ann.p2_perceived_skin_tone >= 1 %}
           {% set mst2 = ann.p2_perceived_skin_tone %}
-          <br><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{{ mst_colors[mst2-1] }};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px;opacity:.85"></span><span style="font-size:10px;color:var(--orange)">{{ mst2 }}</span>
+          <br><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:{{ mst_colors[mst2-1] }};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span><span style="color:var(--orange)">{{ mst2 }}</span>
         {% endif %}
       {% else %}–{% endif %}
     </td>
@@ -961,14 +961,14 @@ function updateTableRow(id, d) {
       : '–';
     if (d.annotation_type === 'couple' && d.p2_perceived_gender !== null) {
       const g2 = d.p2_perceived_gender;
-      gHtml += `<br><span class="gender-pill" style="background:${GENDER_COLORS[g2]}22;color:${GENDER_COLORS[g2]};font-size:10px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${GENDER_COLORS[g2]};display:inline-block"></span>${SHORT[g2]}</span>`;
+      gHtml += `<br><span class="gender-pill" style="background:${GENDER_COLORS[g2]}22;color:${GENDER_COLORS[g2]};margin-top:2px"><span style="width:7px;height:7px;border-radius:50%;background:${GENDER_COLORS[g2]};display:inline-block"></span>${SHORT[g2]}</span>`;
     }
     cells[5].innerHTML = gHtml;
   }
   if (cells[6]) {
     let ageHtml = d.perceived_age || '–';
     if (d.annotation_type === 'couple' && d.p2_perceived_age)
-      ageHtml += `<br><span style="color:var(--orange);font-size:10px">${d.p2_perceived_age}</span>`;
+      ageHtml += `<br><span style="color:var(--orange)">${d.p2_perceived_age}</span>`;
     cells[6].innerHTML = ageHtml;
   }
   if (cells[7]) {
@@ -976,7 +976,7 @@ function updateTableRow(id, d) {
       ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${MST_COLORS[d.perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span>${d.perceived_skin_tone}`
       : '–';
     if (d.annotation_type === 'couple' && d.p2_perceived_skin_tone)
-      skinHtml += `<br><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${MST_COLORS[d.p2_perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px;opacity:.85"></span><span style="font-size:10px;color:var(--orange)">${d.p2_perceived_skin_tone}</span>`;
+      skinHtml += `<br><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${MST_COLORS[d.p2_perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span><span style="color:var(--orange)">${d.p2_perceived_skin_tone}</span>`;
     cells[7].innerHTML = skinHtml;
   }
   if (cells[8]) cells[8].innerHTML = `<span class="vbadge ${d.concept_match==='Yes'?'yes':'no'}">${d.concept_match}</span>`;
