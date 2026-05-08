@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     dimension TEXT NOT NULL,
-    description TEXT
+    description TEXT,
+    annotation_type TEXT NOT NULL DEFAULT 'single' CHECK(annotation_type IN ('single', 'couple'))
 );
 
 CREATE TABLE IF NOT EXISTS terms (
@@ -131,9 +132,39 @@ CREATE TABLE IF NOT EXISTS annotations (
     suitability TEXT DEFAULT 'Suitable',
     suitability_reason TEXT,
     intersectional_notes TEXT,
+    p2_perceived_gender INTEGER,
+    p2_perceived_age TEXT,
+    p2_perceived_skin_tone INTEGER,
+    p2_perceived_disability TEXT,
+    p2_body_type_notes TEXT,
+    p2_perceived_socioeconomic_status TEXT,
+    couple_relationship_type TEXT,
+    couple_interracial TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
+
+def migrate_db():
+    """Apply schema migrations to existing production databases safely."""
+    db = sqlite3.connect(app.config["DATABASE"])
+    campaign_cols = {r[1] for r in db.execute("PRAGMA table_info(campaigns)").fetchall()}
+    if "annotation_type" not in campaign_cols:
+        db.execute("ALTER TABLE campaigns ADD COLUMN annotation_type TEXT NOT NULL DEFAULT 'single'")
+    ann_cols = {r[1] for r in db.execute("PRAGMA table_info(annotations)").fetchall()}
+    for col, typ in [
+        ("p2_perceived_gender",           "INTEGER"),
+        ("p2_perceived_age",              "TEXT"),
+        ("p2_perceived_skin_tone",        "INTEGER"),
+        ("p2_perceived_disability",       "TEXT"),
+        ("p2_body_type_notes",            "TEXT"),
+        ("p2_perceived_socioeconomic_status", "TEXT"),
+        ("couple_relationship_type",      "TEXT"),
+        ("couple_interracial",            "TEXT"),
+    ]:
+        if col not in ann_cols:
+            db.execute(f"ALTER TABLE annotations ADD COLUMN {col} {typ}")
+    db.commit()
+    db.close()
 
 CAMPAIGNS_DATA = [
     ("C1", "Vocational Training (FP/TVET)", "Productive", "Promoting the local vocational training centre"),
@@ -284,7 +315,7 @@ def annotate(task_id):
     db = get_db()
     task = db.execute("""
         SELECT t.*, te.term, te.campaign_id, te.target_images, te.dimensions as term_dims,
-               c.name as campaign_name, c.dimension as campaign_dim
+               c.name as campaign_name, c.dimension as campaign_dim, c.annotation_type
         FROM tasks t
         JOIN terms te ON t.term_id = te.id
         JOIN campaigns c ON te.campaign_id = c.id
@@ -353,8 +384,11 @@ def api_save_annotation(task_id):
             image_size_kb, image_format, licence, concept_match, num_people,
             perceived_gender, perceived_age, perceived_skin_tone,
             perceived_disability, body_type_notes, perceived_socioeconomic_status,
-            suitability, suitability_reason, intersectional_notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            suitability, suitability_reason, intersectional_notes,
+            p2_perceived_gender, p2_perceived_age, p2_perceived_skin_tone,
+            p2_perceived_disability, p2_body_type_notes, p2_perceived_socioeconomic_status,
+            couple_relationship_type, couple_interracial
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         task_id, image_url, img_path, img_width, img_height,
         img_size_kb, img_format,
@@ -370,6 +404,14 @@ def api_save_annotation(task_id):
         data.get("suitability", "Suitable"),
         data.get("suitability_reason"),
         data.get("intersectional_notes"),
+        data.get("p2_perceived_gender"),
+        data.get("p2_perceived_age"),
+        data.get("p2_perceived_skin_tone", 0),
+        data.get("p2_perceived_disability"),
+        data.get("p2_body_type_notes"),
+        data.get("p2_perceived_socioeconomic_status"),
+        data.get("couple_relationship_type"),
+        data.get("couple_interracial"),
     ))
     db.commit()
 
@@ -568,10 +610,13 @@ def admin_campaigns():
         name = request.form.get("name", "").strip()
         dimension = request.form.get("dimension", "").strip()
         description = request.form.get("description", "").strip()
+        annotation_type = request.form.get("annotation_type", "single")
+        if annotation_type not in ("single", "couple"):
+            annotation_type = "single"
         if cid and name and dimension:
             try:
-                db.execute("INSERT INTO campaigns VALUES (?, ?, ?, ?)",
-                           (cid, name, dimension, description))
+                db.execute("INSERT INTO campaigns VALUES (?, ?, ?, ?, ?)",
+                           (cid, name, dimension, description, annotation_type))
                 db.commit()
                 flash(f"Campaign '{cid}' created", "success")
             except sqlite3.IntegrityError:
@@ -750,6 +795,7 @@ def api_export_csv():
     annotations = db.execute("""
         SELECT a.*, te.term, te.campaign_id, te.dimensions as term_dims,
                c.name as campaign_name, c.dimension as campaign_dim,
+               c.annotation_type as campaign_annotation_type,
                u.display_name as annotator_name
         FROM annotations a
         JOIN tasks t ON a.task_id = t.id
@@ -764,22 +810,26 @@ def api_export_csv():
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "annotation_id", "campaign_id", "campaign_name", "term", "term_dimensions",
+        "annotation_id", "campaign_id", "campaign_name", "annotation_type", "term", "term_dimensions",
         "annotator", "image_url", "image_width", "image_height", "image_size_kb",
         "image_format", "licence", "num_people", "perceived_gender",
         "perceived_age", "perceived_skin_tone", "perceived_disability",
-        "body_type_notes", "perceived_socioeconomic_status",
-        "intersectional_notes", "created_at"
+        "body_type_notes", "perceived_socioeconomic_status", "intersectional_notes",
+        "p2_perceived_gender", "p2_perceived_age", "p2_perceived_skin_tone",
+        "p2_perceived_disability", "p2_body_type_notes", "p2_perceived_socioeconomic_status",
+        "couple_relationship_type", "couple_interracial", "created_at"
     ])
     for a in annotations:
         writer.writerow([
-            a["id"], a["campaign_id"], a["campaign_name"], a["term"], a["term_dims"],
+            a["id"], a["campaign_id"], a["campaign_name"], a["campaign_annotation_type"], a["term"], a["term_dims"],
             a["annotator_name"], a["image_url"], a["image_width"], a["image_height"],
             a["image_size_kb"], a["image_format"], a["licence"],
             a["num_people"], a["perceived_gender"], a["perceived_age"],
             a["perceived_skin_tone"], a["perceived_disability"],
-            a["body_type_notes"], a["perceived_socioeconomic_status"],
-            a["intersectional_notes"], a["created_at"]
+            a["body_type_notes"], a["perceived_socioeconomic_status"], a["intersectional_notes"],
+            a["p2_perceived_gender"], a["p2_perceived_age"], a["p2_perceived_skin_tone"],
+            a["p2_perceived_disability"], a["p2_body_type_notes"], a["p2_perceived_socioeconomic_status"],
+            a["couple_relationship_type"], a["couple_interracial"], a["created_at"]
         ])
 
     from flask import Response
@@ -812,7 +862,11 @@ def api_update_annotation(ann_id):
             perceived_age = ?, perceived_skin_tone = ?,
             perceived_disability = ?, body_type_notes = ?,
             perceived_socioeconomic_status = ?,
-            suitability = ?, suitability_reason = ?, intersectional_notes = ?
+            suitability = ?, suitability_reason = ?, intersectional_notes = ?,
+            p2_perceived_gender = ?, p2_perceived_age = ?, p2_perceived_skin_tone = ?,
+            p2_perceived_disability = ?, p2_body_type_notes = ?,
+            p2_perceived_socioeconomic_status = ?,
+            couple_relationship_type = ?, couple_interracial = ?
         WHERE id = ?
     """, (
         data.get("concept_match"),
@@ -826,6 +880,14 @@ def api_update_annotation(ann_id):
         data.get("suitability"),
         data.get("suitability_reason") or None,
         data.get("intersectional_notes") or None,
+        data.get("p2_perceived_gender"),
+        data.get("p2_perceived_age") or None,
+        data.get("p2_perceived_skin_tone"),
+        data.get("p2_perceived_disability") or None,
+        data.get("p2_body_type_notes") or None,
+        data.get("p2_perceived_socioeconomic_status") or None,
+        data.get("couple_relationship_type") or None,
+        data.get("couple_interracial") or None,
         ann_id,
     ))
     db.commit()
@@ -876,8 +938,12 @@ def admin_viewer():
                a.perceived_skin_tone, a.perceived_disability, a.body_type_notes,
                a.perceived_socioeconomic_status, a.suitability, a.suitability_reason,
                a.intersectional_notes, a.created_at,
+               a.p2_perceived_gender, a.p2_perceived_age, a.p2_perceived_skin_tone,
+               a.p2_perceived_disability, a.p2_body_type_notes, a.p2_perceived_socioeconomic_status,
+               a.couple_relationship_type, a.couple_interracial,
                te.term, te.campaign_id, te.dimensions as term_dims,
                c.name as campaign_name, c.dimension as campaign_dim,
+               c.annotation_type,
                u.display_name as annotator_name, u.id as annotator_user_id
         {base_sql}
         ORDER BY a.created_at DESC
@@ -982,6 +1048,7 @@ def inject_globals():
 
 # Always initialize DB on import (needed for gunicorn which doesn't run __main__)
 init_db()
+migrate_db()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

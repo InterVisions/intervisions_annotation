@@ -500,6 +500,7 @@ const ANNOTATIONS = {
     campaign: {{ (ann.campaign_id ~ ' – ' ~ ann.campaign_name) | tojson }},
     annotator: {{ ann.annotator_name | tojson }},
     annotator_user_id: {{ ann.annotator_user_id }},
+    annotation_type: {{ (ann.annotation_type if ann.annotation_type is defined else 'single') | tojson }},
     concept_match: {{ (ann.concept_match or '–') | tojson }},
     num_people: {{ (ann.num_people | string) | tojson }},
     perceived_gender: {{ ann.perceived_gender if ann.perceived_gender is not none else 'null' }},
@@ -511,6 +512,14 @@ const ANNOTATIONS = {
     suitability: {{ (ann.suitability or '–') | tojson }},
     suitability_reason: {{ (ann.suitability_reason or '') | tojson }},
     intersectional_notes: {{ (ann.intersectional_notes or '') | tojson }},
+    p2_perceived_gender: {{ ann.p2_perceived_gender if ann.p2_perceived_gender is not none else 'null' }},
+    p2_perceived_age: {{ (ann.p2_perceived_age or '') | tojson }},
+    p2_perceived_skin_tone: {{ ann.p2_perceived_skin_tone if ann.p2_perceived_skin_tone else 'null' }},
+    p2_perceived_disability: {{ (ann.p2_perceived_disability or '') | tojson }},
+    p2_body_type_notes: {{ (ann.p2_body_type_notes or '') | tojson }},
+    p2_perceived_socioeconomic_status: {{ (ann.p2_perceived_socioeconomic_status or '') | tojson }},
+    couple_relationship_type: {{ (ann.couple_relationship_type or '') | tojson }},
+    couple_interracial: {{ (ann.couple_interracial or '') | tojson }},
     created_at: {{ (ann.created_at or '') | tojson }},
   },
 {% endfor %}
@@ -708,11 +717,15 @@ function renderModalView(d) {
   const matchHtml = `<span style="background:${d.concept_match==='Yes'?'#e8f5e9':'#fce4ec'};color:${d.concept_match==='Yes'?'#2e7d32':'#c62828'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${d.concept_match}</span>`;
   const suitHtml  = `<span style="background:${d.suitability==='Suitable'?'#e8f5e9':'#fce4ec'};color:${d.suitability==='Suitable'?'#2e7d32':'#c62828'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${d.suitability}</span>`;
 
+  const isCouple = d.annotation_type === 'couple';
+  const p1Label = isCouple ? 'Person 1 gender' : 'Gender';
+
   const fields = [
     ['Campaign', d.campaign], ['Term', d.term], ['Annotator', d.annotator],
     ['Concept match', matchHtml], ['Suitability', suitHtml],
-    ['# People', d.num_people], ['Gender', genderHtml],
-    ['Age', d.perceived_age], ['Skin tone', skinHtml],
+    ['# People', d.num_people], [p1Label, genderHtml],
+    [isCouple ? 'Person 1 age' : 'Age', d.perceived_age || '–'],
+    [isCouple ? 'Person 1 skin' : 'Skin tone', skinHtml],
     ['Disability', d.perceived_disability || '–'],
     ['Body type', d.body_type_notes || '–'],
     ['Soc. status', d.perceived_socioeconomic_status || '–'],
@@ -722,8 +735,35 @@ function renderModalView(d) {
   let html = fields.map(([label, val]) =>
     `<div class="mf"><div class="mf-label">${label}</div><div class="mf-value">${val}</div></div>`
   ).join('');
+
   if (d.suitability_reason)
     html += `<div style="grid-column:1/-1"><div class="mf-label">Suitability reason</div><div class="mf-notes">${d.suitability_reason}</div></div>`;
+
+  if (isCouple) {
+    const p2GenderHtml = d.p2_perceived_gender !== null
+      ? `<span style="background:${GENDER_COLORS[d.p2_perceived_gender]}22;color:${GENDER_COLORS[d.p2_perceived_gender]};padding:2px 8px;border-radius:4px;font-weight:600">${GENDER_LABELS[d.p2_perceived_gender]}</span>`
+      : '–';
+    const p2SkinHtml = d.p2_perceived_skin_tone
+      ? `<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${MST_COLORS[d.p2_perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:4px"></span>FST ${d.p2_perceived_skin_tone}`
+      : '–';
+    html += `<div style="grid-column:1/-1;border-top:1px solid var(--gray-200);margin-top:6px;padding-top:10px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#e67e22;margin-bottom:8px">Person 2</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;">
+        <div class="mf"><div class="mf-label">Gender</div><div class="mf-value">${p2GenderHtml}</div></div>
+        <div class="mf"><div class="mf-label">Age</div><div class="mf-value">${d.p2_perceived_age || '–'}</div></div>
+        <div class="mf"><div class="mf-label">Skin tone</div><div class="mf-value">${p2SkinHtml}</div></div>
+        <div class="mf"><div class="mf-label">Disability</div><div class="mf-value">${d.p2_perceived_disability || '–'}</div></div>
+      </div>
+    </div>`;
+    html += `<div style="grid-column:1/-1;border-top:1px solid var(--gray-200);margin-top:6px;padding-top:10px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7c3aed;margin-bottom:8px">Couple</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;">
+        <div class="mf"><div class="mf-label">Relationship type</div><div class="mf-value">${d.couple_relationship_type || '–'}</div></div>
+        <div class="mf"><div class="mf-label">Interracial</div><div class="mf-value">${d.couple_interracial || '–'}</div></div>
+      </div>
+    </div>`;
+  }
+
   if (d.intersectional_notes)
     html += `<div style="grid-column:1/-1"><div class="mf-label">Intersectional notes</div><div class="mf-notes">${d.intersectional_notes}</div></div>`;
 

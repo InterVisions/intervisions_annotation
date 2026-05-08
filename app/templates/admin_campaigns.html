@@ -37,6 +37,25 @@
                 <button type="submit" class="btn btn-primary" style="margin-top:0">Add</button>
             </div>
         </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-200)">
+            <label class="form-label" style="margin-bottom:6px">Annotation type</label>
+            <div style="display:flex;gap:20px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+                    <input type="radio" name="annotation_type" value="single" checked>
+                    <span>
+                        <strong>Single person</strong>
+                        <span style="font-size:12px;color:var(--gray-500);margin-left:4px">— annotate one person per image (default)</span>
+                    </span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+                    <input type="radio" name="annotation_type" value="couple">
+                    <span>
+                        <strong>Couple</strong>
+                        <span style="font-size:12px;color:var(--gray-500);margin-left:4px">— annotate two persons + relationship per image</span>
+                    </span>
+                </label>
+            </div>
+        </div>
     </form>
 </div>
 
@@ -52,6 +71,9 @@
                 {% for d in campaign.dimension.split(',') %}
                 <span class="dim-badge dim-{{ d.strip().lower() }}">{{ d.strip() }}</span>
                 {% endfor %}
+                {% if campaign.annotation_type == 'couple' %}
+                <span style="font-size:11px;background:#fff3e0;color:var(--orange);padding:2px 8px;border-radius:4px;font-weight:600;margin-left:4px">Couple</span>
+                {% endif %}
                 {% if campaign.description %}
                 <span style="font-size:12px;color:var(--gray-500);margin-left:8px">{{ campaign.description }}</span>
                 {% endif %}
