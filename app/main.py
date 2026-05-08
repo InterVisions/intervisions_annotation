@@ -789,6 +789,75 @@ def api_export_csv():
         headers={"Content-Disposition": "attachment; filename=intervisions_annotations.csv"}
     )
 
+# ─── Admin: Dataset Viewer ─────────────────────────────────────────────────
+
+@app.route("/admin/viewer")
+@admin_required
+def admin_viewer():
+    db = get_db()
+
+    campaign_id  = request.args.get("campaign_id", "")
+    term_id      = request.args.get("term_id", "")
+    annotator_id = request.args.get("annotator_id", "")
+    concept_match = request.args.get("concept_match", "")
+    suitability  = request.args.get("suitability", "")
+    page         = max(1, int(request.args.get("page", 1)))
+    per_page     = 50
+
+    conditions, params = ["1=1"], []
+    if campaign_id:
+        conditions.append("te.campaign_id = ?"); params.append(campaign_id)
+    if term_id:
+        conditions.append("t.term_id = ?"); params.append(int(term_id))
+    if annotator_id:
+        conditions.append("t.annotator_id = ?"); params.append(int(annotator_id))
+    if concept_match:
+        conditions.append("a.concept_match = ?"); params.append(concept_match)
+    if suitability:
+        conditions.append("a.suitability = ?"); params.append(suitability)
+
+    where = " AND ".join(conditions)
+    base_sql = f"""
+        FROM annotations a
+        JOIN tasks t ON a.task_id = t.id
+        JOIN terms te ON t.term_id = te.id
+        JOIN campaigns c ON te.campaign_id = c.id
+        JOIN users u ON t.annotator_id = u.id
+        WHERE {where}
+    """
+
+    total = db.execute(f"SELECT COUNT(*) as c {base_sql}", params).fetchone()["c"]
+    annotations = db.execute(f"""
+        SELECT a.id, a.image_path, a.image_url, a.image_width, a.image_height,
+               a.image_size_kb, a.image_format, a.licence,
+               a.concept_match, a.num_people, a.perceived_gender, a.perceived_age,
+               a.perceived_skin_tone, a.perceived_disability, a.body_type_notes,
+               a.perceived_socioeconomic_status, a.suitability, a.suitability_reason,
+               a.intersectional_notes, a.created_at,
+               te.term, te.campaign_id, te.dimensions as term_dims,
+               c.name as campaign_name, c.dimension as campaign_dim,
+               u.display_name as annotator_name, u.id as annotator_user_id
+        {base_sql}
+        ORDER BY a.created_at DESC
+        LIMIT ? OFFSET ?
+    """, params + [per_page, (page - 1) * per_page]).fetchall()
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    campaigns  = db.execute("SELECT * FROM campaigns ORDER BY id").fetchall()
+    terms      = db.execute("SELECT id, term, campaign_id FROM terms ORDER BY campaign_id, term").fetchall()
+    annotators = db.execute(
+        "SELECT id, display_name FROM users WHERE role = 'annotator' ORDER BY display_name"
+    ).fetchall()
+
+    return render_template("admin_viewer.html",
+        annotations=annotations,
+        total=total, page=page, per_page=per_page, total_pages=total_pages,
+        campaigns=campaigns, terms=terms, annotators=annotators,
+        f_campaign_id=campaign_id, f_term_id=term_id, f_annotator_id=annotator_id,
+        f_concept_match=concept_match, f_suitability=suitability,
+        tab="viewer")
+
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 GENDER_LABELS = [

@@ -20,6 +20,7 @@
             {% if session.get('role') == 'admin' %}
             <a href="{{ url_for('admin_progress') }}" class="topbar-link {% if tab == 'progress' %}active{% endif %}">Annotators</a>
             <a href="{{ url_for('admin_dataset') }}" class="topbar-link {% if tab == 'dataset' %}active{% endif %}">Dataset</a>
+            <a href="{{ url_for('admin_viewer') }}" class="topbar-link {% if tab == 'viewer' %}active{% endif %}">Viewer</a>
             <a href="{{ url_for('admin_balance') }}" class="topbar-link {% if tab == 'balance' %}active{% endif %}">Balancing</a>
             <a href="{{ url_for('admin_campaigns') }}" class="topbar-link {% if tab == 'campaigns' %}active{% endif %}">Campaigns</a>
             <a href="{{ url_for('admin_users') }}" class="topbar-link {% if tab == 'users' %}active{% endif %}">Users</a>
