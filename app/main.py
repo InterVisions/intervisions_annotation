@@ -817,7 +817,7 @@ def api_export_csv():
         "body_type_notes", "perceived_socioeconomic_status", "intersectional_notes",
         "p2_perceived_gender", "p2_perceived_age", "p2_perceived_skin_tone",
         "p2_perceived_disability", "p2_body_type_notes", "p2_perceived_socioeconomic_status",
-        "couple_relationship_type", "created_at"
+        "created_at"
     ])
     for a in annotations:
         writer.writerow([
@@ -829,7 +829,7 @@ def api_export_csv():
             a["body_type_notes"], a["perceived_socioeconomic_status"], a["intersectional_notes"],
             a["p2_perceived_gender"], a["p2_perceived_age"], a["p2_perceived_skin_tone"],
             a["p2_perceived_disability"], a["p2_body_type_notes"], a["p2_perceived_socioeconomic_status"],
-            a["couple_relationship_type"], a["created_at"]
+            a["created_at"]
         ])
 
     from flask import Response
