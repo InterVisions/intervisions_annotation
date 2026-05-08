@@ -981,10 +981,13 @@ def compute_task_stats(db, task_id):
 def compute_stats_from_annotations(annotations):
     total = len(annotations)
     if total == 0:
-        return {"total": 0, "gender": {}, "skin_tone": [0]*10, "age": {},
-                "gender_labels": GENDER_LABELS}
+        return {"total": 0, "gender": {}, "skin_tone": [0]*6, "age": {},
+                "gender_labels": GENDER_LABELS, "is_couple": False}
 
-    # Gender distribution (5-step)
+    age_labels = ["Child (0-12)", "Adolescent (13-17)", "Young adult (18-30)",
+                  "Middle-aged (31-60)", "Older adult (60+)", "Cannot determine"]
+
+    # Gender distribution (P1)
     gender_counts = [0] * 3
     gender_na = 0
     for a in annotations:
@@ -994,36 +997,66 @@ def compute_stats_from_annotations(annotations):
         else:
             gender_na += 1
 
-    # Skin tone distribution (MST 1-10)
+    # Skin tone distribution (P1)
     skin_counts = [0] * 6
     for a in annotations:
         st = a["perceived_skin_tone"]
         if st and 1 <= st <= 6:
             skin_counts[st - 1] += 1
 
-    # Age distribution
-    age_labels = ["Child (0-12)", "Adolescent (13-17)", "Young adult (18-30)",
-                  "Middle-aged (31-60)", "Older adult (60+)", "Cannot determine"]
+    # Age distribution (P1)
     age_counts = {l: 0 for l in age_labels}
     for a in annotations:
         age = a["perceived_age"]
         if age in age_counts:
             age_counts[age] += 1
 
-    # MST spread
     mst_spread = sum(1 for c in skin_counts if c > 0)
 
-    return {
+    result = {
         "total": total,
-        "gender": {
-            "counts": gender_counts,
-            "labels": GENDER_LABELS,
-            "na": gender_na,
-        },
+        "gender": {"counts": gender_counts, "labels": GENDER_LABELS, "na": gender_na},
         "skin_tone": skin_counts,
         "mst_spread": mst_spread,
         "age": age_counts,
+        "is_couple": False,
     }
+
+    # Couple pair matrices — only when p2 data is present
+    couple_anns = [a for a in annotations if a["p2_perceived_gender"] is not None]
+    if couple_anns:
+        gender_pairs = [[0] * 3 for _ in range(3)]
+        for a in couple_anns:
+            g1, g2 = a["perceived_gender"], a["p2_perceived_gender"]
+            if g1 is not None and 0 <= g1 <= 2 and g2 is not None and 0 <= g2 <= 2:
+                gender_pairs[g1][g2] += 1
+
+        skin_pairs = [[0] * 6 for _ in range(6)]
+        for a in couple_anns:
+            s1, s2 = a["perceived_skin_tone"], a["p2_perceived_skin_tone"]
+            if s1 and 1 <= s1 <= 6 and s2 and 1 <= s2 <= 6:
+                skin_pairs[s1 - 1][s2 - 1] += 1
+
+        p2_gender_counts = [0] * 3
+        for a in couple_anns:
+            g = a["p2_perceived_gender"]
+            if g is not None and 0 <= g <= 2:
+                p2_gender_counts[g] += 1
+
+        p2_age_counts = {l: 0 for l in age_labels}
+        for a in couple_anns:
+            age = a["p2_perceived_age"]
+            if age in p2_age_counts:
+                p2_age_counts[age] += 1
+
+        result["is_couple"] = True
+        result["couple_total"] = len(couple_anns)
+        result["gender_pairs"] = gender_pairs
+        result["skin_pairs"] = skin_pairs
+        result["p2_gender"] = {"counts": p2_gender_counts, "labels": GENDER_LABELS}
+        result["p2_age"] = p2_age_counts
+
+    return result
 
 # ─── Template context ──────────────────────────────────────────────────────
 

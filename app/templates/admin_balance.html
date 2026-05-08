@@ -1,6 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Admin - Balancing{% endblock %}
 
+{% block head %}
+<style>
+/* ── Pair matrix ─────────────────────────────────────────── */
+.pair-matrix {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+}
+.pair-matrix th { font-weight: 600; padding: 4px 6px; }
+.pm-corner {
+    font-size: 9px; color: var(--gray-500); text-align: center;
+    vertical-align: bottom; padding-bottom: 6px;
+}
+.pm-col-header { text-align: center; white-space: nowrap; }
+.pm-row-header { text-align: right; white-space: nowrap; padding-right: 8px; }
+.pm-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle;
+}
+.pm-swatch {
+    display: inline-block; width: 16px; height: 16px; border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.15); vertical-align: middle;
+}
+.pm-cell {
+    text-align: center; border-radius: 4px; padding: 6px 4px;
+    min-width: 52px; transition: opacity 0.1s;
+}
+.pm-cell-sm { min-width: 34px; padding: 4px 2px; }
+.pm-val { font-weight: 700; font-size: 14px; line-height: 1.2; }
+.pm-pct { font-size: 10px; opacity: 0.85; }
+.pm-summary {
+    margin-top: 10px; font-size: 12px; color: var(--gray-600);
+    padding: 6px 10px; background: var(--gray-100); border-radius: 6px;
+}
+.pm-axis-label {
+    font-size: 10px; font-weight: 600; color: var(--gray-500);
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <h2 style="margin-bottom:12px">Balancing</h2>
 
@@ -14,36 +55,36 @@
 <div id="termInfo" style="display:none;margin-bottom:16px;padding:8px 12px;background:#fffde7;border-radius:8px;border:1px solid #fff9c4;font-size:13px"></div>
 
 <div class="chart-grid" id="charts">
-    <!-- Gender -->
-    <div class="chart-card">
+    <!-- Card 1: Gender / Gender pairs -->
+    <div class="chart-card" id="card-gender">
         <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-            <span class="chart-title">Gender</span>
+            <span class="chart-title" id="title-gender">Gender</span>
             <span style="font-size:11px;color:var(--gray-500)" id="genderN"></span>
         </div>
         <div id="genderChart"></div>
         <div id="genderWarning" class="chart-warning" style="display:none"></div>
     </div>
 
-    <!-- Skin Tone -->
-    <div class="chart-card">
+    <!-- Card 2: Skin tone / Skin tone pairs -->
+    <div class="chart-card" id="card-skin">
         <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-            <span class="chart-title">Skin Tone (FST)</span>
+            <span class="chart-title" id="title-skin">Skin Tone (FST)</span>
             <span style="font-size:11px;color:var(--gray-500)" id="skinN"></span>
         </div>
-        <div class="mst-bars" id="skinChart"></div>
+        <div id="skinChart"></div>
         <div id="skinWarning" class="chart-warning" style="display:none"></div>
     </div>
 
-    <!-- Age -->
-    <div class="chart-card">
+    <!-- Card 3: Age -->
+    <div class="chart-card" id="card-age">
         <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-            <span class="chart-title">Age</span>
+            <span class="chart-title" id="title-age">Age</span>
             <span style="font-size:11px;color:var(--gray-500)" id="ageN"></span>
         </div>
         <div id="ageChart"></div>
     </div>
 
-    <!-- Fraser / Term summary -->
+    <!-- Card 4: Fraser / Term summary / Couple summary -->
     <div class="chart-card" id="fourthChart"></div>
 </div>
 
@@ -86,7 +127,23 @@ async function filterTerm(btn, termId) {
     }
 }
 
+// ── Entry point ────────────────────────────────────────────────────────────
+
 function renderCharts(stats, isGlobal) {
+    if (stats.is_couple) {
+        renderCoupleCharts(stats, isGlobal);
+    } else {
+        renderSingleCharts(stats, isGlobal);
+    }
+}
+
+// ── Single-person mode (unchanged behaviour) ───────────────────────────────
+
+function renderSingleCharts(stats, isGlobal) {
+    document.getElementById('title-gender').textContent = 'Gender';
+    document.getElementById('title-skin').textContent = 'Skin Tone (FST)';
+    document.getElementById('title-age').textContent = 'Age';
+
     // Gender
     const gTotal = (stats.gender.counts || []).reduce((s, v) => s + v, 0) + (stats.gender.na || 0);
     document.getElementById('genderN').textContent = 'n=' + gTotal;
@@ -105,8 +162,9 @@ function renderCharts(stats, isGlobal) {
     document.getElementById('genderChart').innerHTML = gHtml;
     const gImb = (stats.gender.counts || []).some(c => gTotal > 0 && c / gTotal > 0.6);
     const gWarn = document.getElementById('genderWarning');
-    if (gImb) { gWarn.style.display = 'block'; gWarn.textContent = '⚠ Imbalance: one category exceeds 60%'; }
-    else { gWarn.style.display = 'none'; }
+    gWarn.style.display = gImb ? 'block' : 'none';
+    if (gImb) gWarn.textContent = '⚠ Imbalance: one category exceeds 60%';
+    document.getElementById('skinWarning').style.display = 'none';
 
     // Skin tone
     const sTotal = (stats.skin_tone || []).reduce((s, v) => s + v, 0);
@@ -122,7 +180,7 @@ function renderCharts(stats, isGlobal) {
                 <div class="mst-bar-num">${i + 1}</div>
             </div>`;
     });
-    document.getElementById('skinChart').innerHTML = sHtml;
+    document.getElementById('skinChart').innerHTML = `<div class="mst-bars">${sHtml}</div>`;
     const darkCount = (stats.skin_tone || []).slice(3).reduce((s, v) => s + v, 0);
     const sWarn = document.getElementById('skinWarning');
     if (sTotal > 0 && darkCount < sTotal * 0.15) {
@@ -130,14 +188,122 @@ function renderCharts(stats, isGlobal) {
     } else { sWarn.style.display = 'none'; }
 
     // Age
-    const ageEntries = Object.entries(stats.age || {});
-    const aTotal = ageEntries.reduce((s, [, v]) => s + v, 0);
-    document.getElementById('ageN').textContent = 'n=' + aTotal;
-    let aHtml = '';
-    ageEntries.forEach(([label, count]) => {
+    renderAgeChart('ageChart', 'ageN', stats.age);
+
+    // Fourth chart
+    renderFourthChart(stats, isGlobal, false);
+}
+
+// ── Couple mode ────────────────────────────────────────────────────────────
+
+function renderCoupleCharts(stats, isGlobal) {
+    document.getElementById('title-gender').textContent = 'Gender Pairs';
+    document.getElementById('title-skin').textContent = 'Skin Tone Pairs (FST)';
+    document.getElementById('title-age').textContent = 'Age — Person 1 / Person 2';
+    document.getElementById('genderWarning').style.display = 'none';
+    document.getElementById('skinWarning').style.display = 'none';
+
+    const n = stats.couple_total || 0;
+    document.getElementById('genderN').textContent = 'n=' + n;
+    document.getElementById('skinN').textContent = 'n=' + n;
+
+    // Gender pair matrix (3×3)
+    document.getElementById('genderChart').innerHTML = renderGenderMatrix(stats.gender_pairs, n);
+
+    // Skin tone pair matrix (6×6)
+    document.getElementById('skinChart').innerHTML = renderSkinMatrix(stats.skin_pairs, n);
+
+    // Age: P1 and P2 side by side
+    renderDoublAgeChart(stats.age, stats.p2_age);
+
+    // Fourth chart: couple summary
+    renderFourthChart(stats, isGlobal, true);
+}
+
+function renderGenderMatrix(pairs, total) {
+    const short = ['M.Male', 'N-B', 'M.Female'];
+    const maxVal = Math.max(...pairs.flat(), 1);
+
+    let html = '<div class="pm-axis-label" style="text-align:center;margin-bottom:6px">Person 2 →</div>';
+    html += '<table class="pair-matrix">';
+    html += '<thead><tr><th class="pm-corner">P1 ↓</th>';
+    short.forEach((l, i) =>
+        html += `<th class="pm-col-header"><span class="pm-dot" style="background:${GENDER_COLORS[i]}"></span>${l}</th>`
+    );
+    html += '</tr></thead><tbody>';
+
+    pairs.forEach((row, ri) => {
+        html += `<tr><th class="pm-row-header"><span class="pm-dot" style="background:${GENDER_COLORS[ri]}"></span>${short[ri]}</th>`;
+        row.forEach(val => {
+            const intensity = val / maxVal;
+            const bg = intensity > 0 ? `rgba(43,87,154,${(0.08 + intensity * 0.82).toFixed(2)})` : '#f8f9fc';
+            const fg = intensity > 0.55 ? '#fff' : '#333';
+            const pct = total > 0 ? Math.round(val / total * 100) : 0;
+            html += `<td class="pm-cell" style="background:${bg};color:${fg}">
+                <div class="pm-val">${val}</div>
+                ${val > 0 ? `<div class="pm-pct">${pct}%</div>` : ''}
+            </td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    if (total > 0) {
+        const sameG = pairs.reduce((s, row, i) => s + row[i], 0);
+        const diffG = total - sameG;
+        html += `<div class="pm-summary">
+            Same gender: <strong>${sameG}</strong> (${Math.round(sameG/total*100)}%)
+            &nbsp;·&nbsp;
+            Different gender: <strong>${diffG}</strong> (${Math.round(diffG/total*100)}%)
+        </div>`;
+    }
+    return html;
+}
+
+function renderSkinMatrix(pairs, total) {
+    const maxVal = Math.max(...pairs.flat(), 1);
+
+    let html = '<div class="pm-axis-label" style="text-align:center;margin-bottom:6px">Person 2 →</div>';
+    html += '<table class="pair-matrix">';
+    html += '<thead><tr><th class="pm-corner">P1 ↓</th>';
+    MST_COLORS.forEach(c =>
+        html += `<th class="pm-col-header"><span class="pm-swatch" style="background:${c}"></span></th>`
+    );
+    html += '</tr></thead><tbody>';
+
+    pairs.forEach((row, ri) => {
+        html += `<tr><th class="pm-row-header"><span class="pm-swatch" style="background:${MST_COLORS[ri]}"></span></th>`;
+        row.forEach(val => {
+            const intensity = val / maxVal;
+            const bg = intensity > 0 ? `rgba(80,40,20,${(0.08 + intensity * 0.82).toFixed(2)})` : '#f8f9fc';
+            const fg = intensity > 0.55 ? '#fff' : '#333';
+            html += `<td class="pm-cell pm-cell-sm" style="background:${bg};color:${fg}">${val > 0 ? val : ''}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    if (total > 0) {
+        const sameT = pairs.reduce((s, row, i) => s + row[i], 0);
+        const diffT = total - sameT;
+        html += `<div class="pm-summary">
+            Same tone: <strong>${sameT}</strong> (${Math.round(sameT/total*100)}%)
+            &nbsp;·&nbsp;
+            Different tone: <strong>${diffT}</strong> (${Math.round(diffT/total*100)}%)
+        </div>`;
+    }
+    return html;
+}
+
+function renderAgeChart(containerId, counterId, ageCounts) {
+    const entries = Object.entries(ageCounts || {});
+    const aTotal = entries.reduce((s, [, v]) => s + v, 0);
+    if (counterId) document.getElementById(counterId).textContent = 'n=' + aTotal;
+    let html = '';
+    entries.forEach(([label, count]) => {
         const pct = aTotal > 0 ? Math.round((count / aTotal) * 100) : 0;
         const shortLabel = label.split(' ')[0];
-        aHtml += `
+        html += `
             <div class="chart-bar-row">
                 <span class="chart-bar-label">${shortLabel}</span>
                 <div class="chart-bar-track">
@@ -146,11 +312,76 @@ function renderCharts(stats, isGlobal) {
                 <span class="chart-bar-value">${count} (${pct}%)</span>
             </div>`;
     });
-    document.getElementById('ageChart').innerHTML = aHtml;
+    document.getElementById(containerId).innerHTML = html;
+}
 
-    // Fourth chart: Fraser (global) or Term summary (per-term)
+function renderDoublAgeChart(p1Age, p2Age) {
+    const entries = Object.keys(p1Age || {});
+    const p1Total = Object.values(p1Age || {}).reduce((s, v) => s + v, 0);
+    const p2Total = Object.values(p2Age || {}).reduce((s, v) => s + v, 0);
+    document.getElementById('ageN').textContent = `P1 n=${p1Total} · P2 n=${p2Total}`;
+
+    let html = '';
+    entries.forEach(label => {
+        const c1 = (p1Age || {})[label] || 0;
+        const c2 = (p2Age || {})[label] || 0;
+        const pct1 = p1Total > 0 ? Math.round(c1 / p1Total * 100) : 0;
+        const pct2 = p2Total > 0 ? Math.round(c2 / p2Total * 100) : 0;
+        const shortLabel = label.split(' ')[0];
+        html += `
+            <div class="chart-bar-row" style="margin-bottom:6px">
+                <span class="chart-bar-label">${shortLabel}</span>
+                <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+                    <div class="chart-bar-track" style="height:8px" title="Person 1">
+                        <div class="chart-bar-fill" style="width:${pct1}%;background:#4A8BC2;height:100%"></div>
+                    </div>
+                    <div class="chart-bar-track" style="height:8px" title="Person 2">
+                        <div class="chart-bar-fill" style="width:${pct2}%;background:#C77DBA;height:100%"></div>
+                    </div>
+                </div>
+                <span class="chart-bar-value" style="font-size:10px">${c1}/${c2}</span>
+            </div>`;
+    });
+    html += `<div style="font-size:10px;color:var(--gray-500);margin-top:6px;display:flex;gap:12px">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#4A8BC2;border-radius:2px;margin-right:3px"></span>P1</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#C77DBA;border-radius:2px;margin-right:3px"></span>P2</span>
+    </div>`;
+    document.getElementById('ageChart').innerHTML = html;
+}
+
+function renderFourthChart(stats, isGlobal, isCouple) {
     const fourth = document.getElementById('fourthChart');
-    if (isGlobal) {
+    if (isCouple) {
+        const n = stats.couple_total || 0;
+        const gPairs = stats.gender_pairs || [];
+        const sPairs = stats.skin_pairs || [];
+        const sameG = gPairs.reduce((s, row, i) => s + (row[i] || 0), 0);
+        const sameT = sPairs.reduce((s, row, i) => s + (row[i] || 0), 0);
+        const pairsWithData = sPairs.flat().reduce((s, v) => s + v, 0);
+
+        let warnings = '';
+        if (n > 0 && sameG / n > 0.7)
+            warnings += '<div class="chart-warning" style="display:block;margin-top:8px">⚠ Same-gender couples over 70% — check diversity</div>';
+        if (pairsWithData > 0 && sameT / pairsWithData > 0.7)
+            warnings += '<div class="chart-warning" style="display:block;margin-top:8px">⚠ Same skin-tone couples over 70% — limited FST diversity</div>';
+
+        fourth.innerHTML = `
+            <div class="chart-title">Couple Summary</div>
+            <div style="font-size:13px;margin-bottom:10px"><strong>Total couple images:</strong> ${n}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                <div style="background:var(--gray-100);border-radius:6px;padding:8px">
+                    <div style="color:var(--gray-500);font-size:10px;margin-bottom:2px">SAME GENDER</div>
+                    <div style="font-size:18px;font-weight:700">${n > 0 ? Math.round(sameG/n*100) : 0}%</div>
+                    <div style="color:var(--gray-500)">${sameG} / ${n}</div>
+                </div>
+                <div style="background:var(--gray-100);border-radius:6px;padding:8px">
+                    <div style="color:var(--gray-500);font-size:10px;margin-bottom:2px">SAME SKIN TONE</div>
+                    <div style="font-size:18px;font-weight:700">${pairsWithData > 0 ? Math.round(sameT/pairsWithData*100) : 0}%</div>
+                    <div style="color:var(--gray-500)">${sameT} / ${pairsWithData}</div>
+                </div>
+            </div>
+            ${warnings}`;
+    } else if (isGlobal) {
         fourth.innerHTML = `
             <div class="chart-title">Fraser Dimensions</div>
             <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">
@@ -160,9 +391,11 @@ function renderCharts(stats, isGlobal) {
                 <strong>Total images:</strong> ${stats.total}
             </p>`;
     } else {
+        const gTotal = (stats.gender.counts || []).reduce((s, v) => s + v, 0);
+        const gImb = (stats.gender.counts || []).some(c => gTotal > 0 && c / gTotal > 0.6);
+        const skinGap = (stats.skin_tone || []).filter(v => v === 0).length;
         let warnings = '';
         if (gImb) warnings += '<div style="padding:8px;background:var(--orange-light);border-radius:6px;font-size:12px;color:var(--orange);margin-top:8px">💡 Gender imbalance — search for under-represented presentations</div>';
-        const skinGap = (stats.skin_tone || []).filter(v => v === 0).length;
         if (skinGap > 4) warnings += '<div style="padding:8px;background:var(--orange-light);border-radius:6px;font-size:12px;color:var(--orange);margin-top:8px">💡 Low skin tone diversity — try different languages/sources</div>';
         fourth.innerHTML = `
             <div class="chart-title">Term Summary</div>
