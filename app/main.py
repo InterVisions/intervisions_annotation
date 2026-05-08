@@ -792,7 +792,7 @@ def api_export_csv():
 # ─── Admin: Dataset Viewer ─────────────────────────────────────────────────
 
 @app.route("/admin/viewer")
-@admin_required
+@login_required
 def admin_viewer():
     db = get_db()
 

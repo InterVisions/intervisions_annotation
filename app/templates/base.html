@@ -26,6 +26,8 @@
             <a href="{{ url_for('admin_users') }}" class="topbar-link {% if tab == 'users' %}active{% endif %}">Users</a>
             <a href="{{ url_for('admin_settings') }}" class="topbar-link {% if tab == 'settings' %}active{% endif %}">Settings</a>
             <a href="{{ url_for('api_export_csv') }}" class="topbar-link">Export CSV</a>
+            {% else %}
+            <a href="{{ url_for('admin_viewer') }}" class="topbar-link {% if tab == 'viewer' %}active{% endif %}">Dataset</a>
             {% endif %}
             <span class="topbar-user">{{ session.get('display_name', 'User') }}</span>
             <a href="{{ url_for('logout') }}" class="topbar-logout">Logout</a>
