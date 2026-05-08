@@ -306,18 +306,30 @@ main.container { max-width: 1500px; }
       {% if ann.perceived_gender is not none %}
         {% set g = ann.perceived_gender %}
         <span class="gender-pill" style="background:{{ gcols[g] }}22;color:{{ gcols[g] }}">
-          <span style="width:7px;height:7px;border-radius:50%;background:{{ gcols[g] }};display:inline-block"></span>
-          {{ glbls[g] }}
+          <span style="width:7px;height:7px;border-radius:50%;background:{{ gcols[g] }};display:inline-block"></span>{{ glbls[g] }}
         </span>
+        {% if ann.annotation_type == 'couple' and ann.p2_perceived_gender is not none %}
+          {% set g2 = ann.p2_perceived_gender %}
+          <br><span class="gender-pill" style="background:{{ gcols[g2] }}22;color:{{ gcols[g2] }};font-size:10px;margin-top:2px">
+            <span style="width:6px;height:6px;border-radius:50%;background:{{ gcols[g2] }};display:inline-block"></span>{{ glbls[g2] }}
+          </span>
+        {% endif %}
       {% else %}–{% endif %}
     </td>
-    <td style="font-size:11px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ ann.perceived_age }}">
-      {{ ann.perceived_age or '–' }}
+    <td style="font-size:11px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+      <span title="{{ ann.perceived_age }}">{{ ann.perceived_age or '–' }}</span>
+      {% if ann.annotation_type == 'couple' and ann.p2_perceived_age %}
+        <br><span style="color:var(--orange);font-size:10px" title="{{ ann.p2_perceived_age }}">{{ ann.p2_perceived_age }}</span>
+      {% endif %}
     </td>
     <td>
       {% if ann.perceived_skin_tone and ann.perceived_skin_tone >= 1 %}
         {% set mst = ann.perceived_skin_tone %}
         <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:{{ mst_colors[mst-1] }};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span>{{ mst }}
+        {% if ann.annotation_type == 'couple' and ann.p2_perceived_skin_tone and ann.p2_perceived_skin_tone >= 1 %}
+          {% set mst2 = ann.p2_perceived_skin_tone %}
+          <br><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{{ mst_colors[mst2-1] }};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px;opacity:.85"></span><span style="font-size:10px;color:var(--orange)">{{ mst2 }}</span>
+        {% endif %}
       {% else %}–{% endif %}
     </td>
     <td>
@@ -462,6 +474,49 @@ main.container { max-width: 1500px; }
                 {% endfor %}
               </div>
             </div>
+            <!-- Person 2 — shown only for couple annotations -->
+            <div class="ef-full" id="ef-p2-section" style="display:none">
+              <div style="border-top:2px dashed #f8d8b0;margin-top:4px;padding-top:12px">
+                <div style="font-weight:700;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Person 2</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px">
+                  <div class="ef-full">
+                    <div class="ef-label">Gender</div>
+                    <div class="ef-radio-group" id="ef-p2_perceived_gender">
+                      <label><input type="radio" name="ef_p2_gender" value="0"><span style="color:#4A8BC2">More maleness</span></label>
+                      <label><input type="radio" name="ef_p2_gender" value="1"><span style="color:#A0A0A0">Non-binary</span></label>
+                      <label><input type="radio" name="ef_p2_gender" value="2"><span style="color:#C77DBA">More femaleness</span></label>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="ef-label">Age</div>
+                    <select class="ef-select" id="ef-p2_perceived_age">
+                      <option value="">— Select —</option>
+                      <option value="Child (0-12)">Child (0-12)</option>
+                      <option value="Adolescent (13-17)">Adolescent (13-17)</option>
+                      <option value="Young adult (18-30)">Young adult (18-30)</option>
+                      <option value="Middle-aged (31-60)">Middle-aged (31-60)</option>
+                      <option value="Older adult (60+)">Older adult (60+)</option>
+                      <option value="Cannot determine">Cannot determine</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div class="ef-label">Skin tone (FST 1–6)</div>
+                    <div class="ef-radio-group" id="ef-p2_perceived_skin_tone">
+                      {% set mst_c = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'] %}
+                      {% for i in range(1, 7) %}
+                      <label title="FST {{ i }}">
+                        <input type="radio" name="ef_p2_skin" value="{{ i }}">
+                        <span style="display:inline-flex;align-items:center;gap:4px">
+                          <span style="width:12px;height:12px;border-radius:50%;background:{{ mst_c[i-1] }};border:1px solid rgba(0,0,0,0.2);display:inline-block"></span>{{ i }}
+                        </span>
+                      </label>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="ef-full">
               <div class="ef-label">Suitability</div>
               <div class="ef-radio-group" id="ef-suitability">
@@ -699,6 +754,17 @@ function enterEditMode() {
   document.getElementById('ef-perceived_socioeconomic_status').value = d.perceived_socioeconomic_status || '';
   document.getElementById('ef-intersectional_notes').value = d.intersectional_notes || '';
 
+  // Person 2 section — show only for couple annotations
+  const p2Section = document.getElementById('ef-p2-section');
+  if (d.annotation_type === 'couple') {
+    p2Section.style.display = '';
+    setRadio('ef_p2_gender', d.p2_perceived_gender !== null ? String(d.p2_perceived_gender) : '1');
+    document.getElementById('ef-p2_perceived_age').value = d.p2_perceived_age || '';
+    if (d.p2_perceived_skin_tone) setRadio('ef_p2_skin', String(d.p2_perceived_skin_tone));
+  } else {
+    p2Section.style.display = 'none';
+  }
+
   document.getElementById('efMsg').textContent = '';
   document.getElementById('viewPanel').classList.add('hidden');
   document.getElementById('editPanel').classList.add('active');
@@ -759,6 +825,14 @@ async function saveEdit() {
     perceived_socioeconomic_status: document.getElementById('ef-perceived_socioeconomic_status').value.trim(),
     intersectional_notes: document.getElementById('ef-intersectional_notes').value.trim(),
   };
+
+  if (d.annotation_type === 'couple') {
+    const p2GenderEl = document.querySelector('input[name="ef_p2_gender"]:checked');
+    const p2SkinEl   = document.querySelector('input[name="ef_p2_skin"]:checked');
+    payload.p2_perceived_gender    = p2GenderEl ? parseInt(p2GenderEl.value) : null;
+    payload.p2_perceived_age       = document.getElementById('ef-p2_perceived_age').value || null;
+    payload.p2_perceived_skin_tone = p2SkinEl   ? parseInt(p2SkinEl.value)   : null;
+  }
 
   try {
     const resp = await fetch(`/api/annotation/${currentAnnotationId}/update`, {
@@ -879,17 +953,31 @@ function updateTableRow(id, d) {
   const cells = row.querySelectorAll('td');
   // cells: thumb(0), term(1), campaign(2), annotator(3), people(4), gender(5), age(6), skin(7), match(8), suit(9), date(10)
   if (cells[4]) cells[4].textContent = d.num_people;
+  const SHORT = ['M.Male','N-B','M.Female'];
   if (cells[5]) {
     const g = d.perceived_gender;
-    cells[5].innerHTML = g !== null
-      ? `<span class="gender-pill" style="background:${GENDER_COLORS[g]}22;color:${GENDER_COLORS[g]}"><span style="width:7px;height:7px;border-radius:50%;background:${GENDER_COLORS[g]};display:inline-block"></span>${['M.Male','N-B','M.Female'][g]}</span>`
+    let gHtml = g !== null
+      ? `<span class="gender-pill" style="background:${GENDER_COLORS[g]}22;color:${GENDER_COLORS[g]}"><span style="width:7px;height:7px;border-radius:50%;background:${GENDER_COLORS[g]};display:inline-block"></span>${SHORT[g]}</span>`
       : '–';
+    if (d.annotation_type === 'couple' && d.p2_perceived_gender !== null) {
+      const g2 = d.p2_perceived_gender;
+      gHtml += `<br><span class="gender-pill" style="background:${GENDER_COLORS[g2]}22;color:${GENDER_COLORS[g2]};font-size:10px;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:${GENDER_COLORS[g2]};display:inline-block"></span>${SHORT[g2]}</span>`;
+    }
+    cells[5].innerHTML = gHtml;
   }
-  if (cells[6]) cells[6].textContent = d.perceived_age || '–';
+  if (cells[6]) {
+    let ageHtml = d.perceived_age || '–';
+    if (d.annotation_type === 'couple' && d.p2_perceived_age)
+      ageHtml += `<br><span style="color:var(--orange);font-size:10px">${d.p2_perceived_age}</span>`;
+    cells[6].innerHTML = ageHtml;
+  }
   if (cells[7]) {
-    cells[7].innerHTML = d.perceived_skin_tone
+    let skinHtml = d.perceived_skin_tone
       ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${MST_COLORS[d.perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px"></span>${d.perceived_skin_tone}`
       : '–';
+    if (d.annotation_type === 'couple' && d.p2_perceived_skin_tone)
+      skinHtml += `<br><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${MST_COLORS[d.p2_perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:3px;opacity:.85"></span><span style="font-size:10px;color:var(--orange)">${d.p2_perceived_skin_tone}</span>`;
+    cells[7].innerHTML = skinHtml;
   }
   if (cells[8]) cells[8].innerHTML = `<span class="vbadge ${d.concept_match==='Yes'?'yes':'no'}">${d.concept_match}</span>`;
   if (cells[9]) cells[9].innerHTML = `<span class="vbadge ${d.suitability==='Suitable'?'suit':'nosuit'}">${d.suitability==='Suitable'?'OK':'No'}</span>`;
