@@ -829,7 +829,7 @@ def api_export_csv():
     writer = csv.writer(output)
     writer.writerow([
         "annotation_id", "campaign_id", "campaign_name", "annotation_type", "term", "term_dimensions",
-        "annotator", "image_url", "image_width", "image_height", "image_size_kb",
+        "annotator", "image_url", "image_path", "image_width", "image_height", "image_size_kb",
         "image_format", "licence", "num_people", "perceived_gender",
         "perceived_age", "perceived_skin_tone", "perceived_disability",
         "body_type_notes", "perceived_socioeconomic_status", "intersectional_notes",
@@ -840,7 +840,7 @@ def api_export_csv():
     for a in annotations:
         writer.writerow([
             a["id"], a["campaign_id"], a["campaign_name"], a["campaign_annotation_type"], a["term"], a["term_dims"],
-            a["annotator_name"], a["image_url"], a["image_width"], a["image_height"],
+            a["annotator_name"], a["image_url"], a["image_path"], a["image_width"], a["image_height"],
             a["image_size_kb"], a["image_format"], a["licence"],
             a["num_people"], a["perceived_gender"], a["perceived_age"],
             a["perceived_skin_tone"], a["perceived_disability"],
