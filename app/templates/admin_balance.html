@@ -46,8 +46,9 @@
 <h2 style="margin-bottom:12px">Balancing</h2>
 
 <div class="term-filter">
+    <button class="term-filter-btn active" id="btn-all" data-term="" onclick="filterTerm(this, '')">All Terms</button>
     {% for t in active_terms %}
-    <button class="term-filter-btn{% if loop.first %} active{% endif %}" data-term="{{ t.id }}" onclick="filterTerm(this, '{{ t.id }}')">{{ t.term }}</button>
+    <button class="term-filter-btn" data-term="{{ t.id }}" onclick="filterTerm(this, '{{ t.id }}')">{{ t.term }}</button>
     {% endfor %}
 </div>
 
@@ -109,13 +110,18 @@ async function filterTerm(btn, termId) {
     currentTerm = termId;
 
     const info = document.getElementById('termInfo');
-    info.style.display = 'block';
-    info.innerHTML = `Stats for: <strong>"${btn.textContent.trim()}"</strong>`;
+    if (termId) {
+        info.style.display = 'block';
+        info.innerHTML = `Stats for: <strong>"${btn.textContent.trim()}"</strong>`;
+    } else {
+        info.style.display = 'none';
+    }
 
+    const url = termId ? `/api/admin/stats?term_id=${termId}` : '/api/admin/stats';
     try {
-        const resp = await fetch(`/api/admin/stats?term_id=${termId}`);
+        const resp = await fetch(url);
         const stats = await resp.json();
-        renderCharts(stats, false);
+        renderCharts(stats, !termId);
     } catch (e) {
         console.error('Failed to load stats:', e);
     }
@@ -389,11 +395,10 @@ function renderFourthChart(stats, isGlobal, isCouple) {
     }
 }
 
-// Load first term on page load
+// Load all-terms view on page load
 {% if active_terms %}
 document.addEventListener('DOMContentLoaded', () => {
-    const first = document.querySelector('.term-filter-btn');
-    if (first) filterTerm(first, first.dataset.term);
+    filterTerm(document.getElementById('btn-all'), '');
 });
 {% endif %}
 </script>
