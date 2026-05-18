@@ -567,10 +567,11 @@ def api_admin_stats():
             "SELECT * FROM annotations WHERE task_id IN ({})".format(",".join("?" * len(task_ids))),
             task_ids
         ).fetchall()
+        stats = compute_stats_from_annotations(annotations)
     else:
         annotations = db.execute("SELECT * FROM annotations").fetchall()
+        stats = compute_aggregate_stats(annotations)
 
-    stats = compute_stats_from_annotations(annotations)
     return jsonify(stats)
 
 @app.route("/admin/users", methods=["GET", "POST"])
@@ -1099,6 +1100,58 @@ def compute_task_stats(db, task_id):
         "SELECT * FROM annotations WHERE task_id = ?", (task_id,)
     ).fetchall()
     return compute_stats_from_annotations(annotations)
+
+def compute_aggregate_stats(annotations):
+    """Flatten single + couple annotations into one unified person-level count.
+    P1 always counts once; P2 counts once when present."""
+    age_labels = ["Child (0-12)", "Adolescent (13-17)", "Young adult (18-30)",
+                  "Middle-aged (31-60)", "Older adult (60+)", "Cannot determine"]
+    gender_counts = [0] * 3
+    gender_na = 0
+    skin_counts = [0] * 6
+    age_counts = {l: 0 for l in age_labels}
+    person_count = 0
+
+    for a in annotations:
+        person_count += 1
+        g = a["perceived_gender"]
+        if g is not None and 0 <= g <= 2:
+            gender_counts[g] += 1
+        else:
+            gender_na += 1
+        st = a["perceived_skin_tone"]
+        if st and 1 <= st <= 6:
+            skin_counts[st - 1] += 1
+        age = a["perceived_age"]
+        if age in age_counts:
+            age_counts[age] += 1
+
+        if a["p2_perceived_gender"] is not None:
+            person_count += 1
+            g2 = a["p2_perceived_gender"]
+            if g2 is not None and 0 <= g2 <= 2:
+                gender_counts[g2] += 1
+            else:
+                gender_na += 1
+            st2 = a["p2_perceived_skin_tone"]
+            if st2 and 1 <= st2 <= 6:
+                skin_counts[st2 - 1] += 1
+            age2 = a["p2_perceived_age"]
+            if age2 in age_counts:
+                age_counts[age2] += 1
+
+    if person_count == 0:
+        return {"total": 0, "gender": {}, "skin_tone": [0]*6, "age": {},
+                "gender_labels": GENDER_LABELS, "is_couple": False}
+
+    return {
+        "total": person_count,
+        "gender": {"counts": gender_counts, "labels": GENDER_LABELS, "na": gender_na},
+        "skin_tone": skin_counts,
+        "mst_spread": sum(1 for c in skin_counts if c > 0),
+        "age": age_counts,
+        "is_couple": False,
+    }
 
 def compute_stats_from_annotations(annotations):
     total = len(annotations)

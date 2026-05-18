@@ -389,8 +389,8 @@ function renderFourthChart(stats, isGlobal, isCouple) {
         if (gImb) warnings += '<div style="padding:8px;background:var(--orange-light);border-radius:6px;font-size:12px;color:var(--orange);margin-top:8px">💡 Gender imbalance — search for under-represented presentations</div>';
         if (skinGap > 4) warnings += '<div style="padding:8px;background:var(--orange-light);border-radius:6px;font-size:12px;color:var(--orange);margin-top:8px">💡 Low skin tone diversity — try different languages/sources</div>';
         fourth.innerHTML = `
-            <div class="chart-title">Term Summary</div>
-            <div style="font-size:13px;margin-bottom:6px"><strong>Total images:</strong> ${stats.total}</div>
+            <div class="chart-title">${isGlobal ? 'Overall Summary' : 'Term Summary'}</div>
+            <div style="font-size:13px;margin-bottom:6px"><strong>${isGlobal ? 'Total persons:' : 'Total images:'}</strong> ${stats.total}</div>
             ${warnings}`;
     }
 }
