@@ -12,7 +12,7 @@ Designed to collect and annotate a balanced fairness evaluation dataset across N
   - Licence (default: CC-BY)
   - Concept match (default: Yes)
   - Suitability (default: Suitable)
-  - 5-step gender presentation scale (Predominantly feminine → Predominantly masculine + Cannot determine)
+  - 3-step perceived gender presentation scale (More maleness / Androgynous or unclear / More femaleness) + Cannot determine (see [Gender coding](#gender-coding))
   - Perceived skin tone on the 6-type Fitzpatrick scale (see [Skin tone coding](#skin-tone-coding)), visual selector with reference popup
   - Perceived age (6 categories)
   - Optional: perceived disability, body type notes
@@ -183,6 +183,22 @@ intervisions/
 - **settings**: key-value store for platform configuration
 
 The database is pre-seeded with 8 campaigns and 42 terms from the InterVisions use-case scenario document.
+
+## Gender coding
+
+`perceived_gender` and `p2_perceived_gender` record perceived gender *presentation* — what the image shows —
+not anyone's gender identity:
+
+| Value | Meaning |
+|---|---|
+| 0 | More maleness |
+| 1 | Androgynous / unclear — the person's look is androgynous or ambiguous |
+| 2 | More femaleness |
+| -1 | Cannot determine — the image is too poor to judge |
+
+Value 1 is deliberately not labelled "Non-binary": being non-binary is an identity, and nobody can see it in a
+photo. Earlier versions of the app showed value 1 as "Non-binary"; the stored values are the same, so older
+data and CSV exports need no conversion.
 
 ## Skin tone coding
 

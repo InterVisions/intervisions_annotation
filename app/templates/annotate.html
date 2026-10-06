@@ -139,11 +139,11 @@
                     <div class="form-group" style="padding:8px;background:#fff;border-radius:6px;border:1px solid #eee">
                         <label class="form-label" style="font-size:11px">Perceived Gender</label>
                         <div class="gender-selector" id="genderSelector1">
-                            <button type="button" class="gender-btn" data-value="0" onclick="setGender(0,1)">M.Male</button>
-                            <button type="button" class="gender-btn active" data-value="1" onclick="setGender(1,1)">NB</button>
-                            <button type="button" class="gender-btn" data-value="2" onclick="setGender(2,1)">M.Female</button>
+                            <button type="button" class="gender-btn" data-value="0" onclick="setGender(0,1)">{{ gender_short[0] }}</button>
+                            <button type="button" class="gender-btn" data-value="1" onclick="setGender(1,1)">{{ gender_short[1] }}</button>
+                            <button type="button" class="gender-btn" data-value="2" onclick="setGender(2,1)">{{ gender_short[2] }}</button>
                         </div>
-                        <div class="gender-label" id="genderLabel1">Non-binary</div>
+                        <div class="gender-label" id="genderLabel1">Select a gender</div>
                         <button type="button" class="gender-na-btn" id="genderNaBtn1" onclick="setGender(-1,1)">Cannot determine</button>
                     </div>
 
@@ -213,11 +213,11 @@
                     <div class="form-group" style="padding:8px;background:#fff;border-radius:6px;border:1px solid #eee">
                         <label class="form-label" style="font-size:11px">Perceived Gender</label>
                         <div class="gender-selector" id="genderSelector2">
-                            <button type="button" class="gender-btn" data-value="0" onclick="setGender(0,2)">M.Male</button>
-                            <button type="button" class="gender-btn active" data-value="1" onclick="setGender(1,2)">NB</button>
-                            <button type="button" class="gender-btn" data-value="2" onclick="setGender(2,2)">M.Female</button>
+                            <button type="button" class="gender-btn" data-value="0" onclick="setGender(0,2)">{{ gender_short[0] }}</button>
+                            <button type="button" class="gender-btn" data-value="1" onclick="setGender(1,2)">{{ gender_short[1] }}</button>
+                            <button type="button" class="gender-btn" data-value="2" onclick="setGender(2,2)">{{ gender_short[2] }}</button>
                         </div>
-                        <div class="gender-label" id="genderLabel2">Non-binary</div>
+                        <div class="gender-label" id="genderLabel2">Select a gender</div>
                         <button type="button" class="gender-na-btn" id="genderNaBtn2" onclick="setGender(-1,2)">Cannot determine</button>
                     </div>
 
@@ -282,11 +282,11 @@
                 <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
                     <label class="form-label">Perceived Gender <span class="form-hint">(3-step scale)</span></label>
                     <div class="gender-selector" id="genderSelector1">
-                        <button type="button" class="gender-btn" data-value="0" onclick="setGender(0)">M.Male</button>
-                        <button type="button" class="gender-btn active" data-value="1" onclick="setGender(1)">NB</button>
-                        <button type="button" class="gender-btn" data-value="2" onclick="setGender(2)">M.Female</button>
+                        <button type="button" class="gender-btn" data-value="0" onclick="setGender(0)">{{ gender_short[0] }}</button>
+                        <button type="button" class="gender-btn" data-value="1" onclick="setGender(1)">{{ gender_short[1] }}</button>
+                        <button type="button" class="gender-btn" data-value="2" onclick="setGender(2)">{{ gender_short[2] }}</button>
                     </div>
-                    <div class="gender-label" id="genderLabel">Non-binary</div>
+                    <div class="gender-label" id="genderLabel">Select a gender</div>
                     <button type="button" class="gender-na-btn" id="genderNaBtn" onclick="setGender(-1)">Cannot determine</button>
                 </div>
 
@@ -396,8 +396,8 @@ const GENDER_COLORS = {{ gender_colors | tojson }};
 const MST_COLORS = {{ mst_colors | tojson }};
 
 let formState = {
-    gender: 1,  skinTone: 0,  numPeople: IS_COUPLE ? '2' : '1',
-    p2Gender: 1, p2SkinTone: 0,
+    gender: null,  skinTone: 0,  numPeople: IS_COUPLE ? '2' : '1',   // gender must be chosen per image
+    p2Gender: null, p2SkinTone: 0,
 };
 
 // ─── Single-person helpers ───────────────────────────────────────────────────
@@ -417,14 +417,14 @@ function setGender(val, person) {
             b.classList.toggle('active', parseInt(b.dataset.value) === val));
         document.getElementById('genderNaBtn' + p).classList.toggle('active', val === -1);
         document.getElementById('genderLabel' + p).textContent =
-            val === -1 ? 'Cannot determine' : (GENDER_LABELS[val] || '');
+            val === null ? 'Select a gender' : val === -1 ? 'Cannot determine' : (GENDER_LABELS[val] || '');
     } else {
         formState.gender = val;
         document.querySelectorAll('#genderSelector1 .gender-btn').forEach(b =>
             b.classList.toggle('active', parseInt(b.dataset.value) === val));
         document.getElementById('genderNaBtn').classList.toggle('active', val === -1);
         document.getElementById('genderLabel').textContent =
-            val === -1 ? 'Cannot determine' : (GENDER_LABELS[val] || '');
+            val === null ? 'Select a gender' : val === -1 ? 'Cannot determine' : (GENDER_LABELS[val] || '');
     }
 }
 
@@ -537,11 +537,19 @@ async function saveAnnotation() {
         return;
     }
 
+    const hasPeople = formState.numPeople !== '0';
+    if (hasPeople && (formState.gender === null || (IS_COUPLE && formState.p2Gender === null))) {
+        document.getElementById('saveStatus').innerHTML =
+            '<span style="color:#e74c3c">Please select a perceived gender' + (IS_COUPLE ? ' for both people' : '') +
+            ' (or "Cannot determine")</span>';
+        return;
+    }
+
     const data = {
         image_url: url,
         licence: document.getElementById('fLicence').value,
         num_people: formState.numPeople,
-        perceived_gender: formState.gender,
+        perceived_gender: hasPeople ? formState.gender : null,
         perceived_skin_tone: formState.skinTone,
         intersectional_notes: document.getElementById('fNotes').value || null,
     };
@@ -597,15 +605,15 @@ async function saveAnnotation() {
             const tbody = document.querySelector('#recentTable tbody');
             const row = document.createElement('tr');
             const gVal = data.perceived_gender;
-            const gColor = gVal >= 0 && gVal <= 2 ? GENDER_COLORS[gVal] : '#ccc';
-            const gLabel = gVal >= 0 && gVal <= 2 ? GENDER_SHORT[gVal] : 'N/D';
+            const gColor = gVal !== null && gVal >= 0 && gVal <= 2 ? GENDER_COLORS[gVal] : '#ccc';
+            const gLabel = gVal !== null && gVal >= 0 && gVal <= 2 ? GENDER_SHORT[gVal] : 'N/D';
             const stVal = data.perceived_skin_tone;
             const stColor = stVal > 0 ? MST_COLORS[stVal - 1] : '#ccc';
 
             if (IS_COUPLE) {
                 const g2Val = data.p2_perceived_gender;
-                const g2Color = g2Val >= 0 && g2Val <= 2 ? GENDER_COLORS[g2Val] : '#ccc';
-                const g2Label = g2Val >= 0 && g2Val <= 2 ? GENDER_SHORT[g2Val] : 'N/D';
+                const g2Color = g2Val !== null && g2Val >= 0 && g2Val <= 2 ? GENDER_COLORS[g2Val] : '#ccc';
+                const g2Label = g2Val !== null && g2Val >= 0 && g2Val <= 2 ? GENDER_SHORT[g2Val] : 'N/D';
                 const st2Val = data.p2_perceived_skin_tone;
                 const st2Color = st2Val > 0 ? MST_COLORS[st2Val - 1] : '#ccc';
                 row.innerHTML = `
@@ -634,6 +642,7 @@ async function saveAnnotation() {
             document.getElementById('imageMeta').style.display = 'none';
             document.getElementById('imageSource').textContent = '';
             document.getElementById('fNotes').value = '';
+            if (IS_COUPLE) { setGender(null, 1); setGender(null, 2); } else { setGender(null); }
             document.getElementById('imageUrl').focus();
 
             setTimeout(() => {

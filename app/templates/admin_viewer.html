@@ -275,8 +275,13 @@ main.container { max-width: 1500px; }
     </tr>
   </thead>
   <tbody>
-  {% set gcols = ['#4A8BC2','#A0A0A0','#C77DBA'] %}
-  {% set glbls = ['M.Male','N-B','M.Female'] %}
+  {% macro gender_pill(g, dot=7, extra='') -%}
+    {%- set known = g is not none and 0 <= g <= 2 -%}
+    {%- set col = gender_colors[g] if known else '#BBBBBB' -%}
+    <span class="gender-pill" style="background:{{ col }}22;color:{{ col }}{{ extra }}">
+      <span style="width:{{ dot }}px;height:{{ dot }}px;border-radius:50%;background:{{ col }};display:inline-block"></span>{{ gender_short[g] if known else 'N/D' }}
+    </span>
+  {%- endmacro %}
   {% for ann in annotations %}
   <tr onclick="openModal({{ ann.id }})" title="Click for full detail">
     <td class="thumb-cell">
@@ -303,15 +308,9 @@ main.container { max-width: 1500px; }
     <td style="text-align:center;font-weight:600">{{ ann.num_people or '–' }}</td>
     <td>
       {% if ann.perceived_gender is not none %}
-        {% set g = ann.perceived_gender %}
-        <span class="gender-pill" style="background:{{ gcols[g] }}22;color:{{ gcols[g] }}">
-          <span style="width:7px;height:7px;border-radius:50%;background:{{ gcols[g] }};display:inline-block"></span>{{ glbls[g] }}
-        </span>
+        {{ gender_pill(ann.perceived_gender) }}
         {% if ann.annotation_type == 'couple' and ann.p2_perceived_gender is not none %}
-          {% set g2 = ann.p2_perceived_gender %}
-          <br><span class="gender-pill" style="background:{{ gcols[g2] }}22;color:{{ gcols[g2] }};margin-top:2px">
-            <span style="width:6px;height:6px;border-radius:50%;background:{{ gcols[g2] }};display:inline-block"></span>{{ glbls[g2] }}
-          </span>
+          <br>{{ gender_pill(ann.p2_perceived_gender, 6, ';margin-top:2px') }}
         {% endif %}
       {% else %}–{% endif %}
     </td>
@@ -443,9 +442,10 @@ main.container { max-width: 1500px; }
             <div class="ef-full">
               <div class="ef-label">Gender</div>
               <div class="ef-radio-group" id="ef-perceived_gender">
-                <label><input type="radio" name="ef_gender" value="0"><span style="color:#4A8BC2">More maleness</span></label>
-                <label><input type="radio" name="ef_gender" value="1"><span style="color:#A0A0A0">Non-binary</span></label>
-                <label><input type="radio" name="ef_gender" value="2"><span style="color:#C77DBA">More femaleness</span></label>
+                {% for lbl in gender_labels %}
+                <label><input type="radio" name="ef_gender" value="{{ loop.index0 }}"><span style="color:{{ gender_colors[loop.index0] }}">{{ lbl }}</span></label>
+                {% endfor %}
+                <label><input type="radio" name="ef_gender" value="-1"><span style="color:#888">Cannot determine</span></label>
               </div>
             </div>
             <div>
@@ -483,9 +483,10 @@ main.container { max-width: 1500px; }
                   <div class="ef-full">
                     <div class="ef-label">Gender</div>
                     <div class="ef-radio-group" id="ef-p2_perceived_gender">
-                      <label><input type="radio" name="ef_p2_gender" value="0"><span style="color:#4A8BC2">More maleness</span></label>
-                      <label><input type="radio" name="ef_p2_gender" value="1"><span style="color:#A0A0A0">Non-binary</span></label>
-                      <label><input type="radio" name="ef_p2_gender" value="2"><span style="color:#C77DBA">More femaleness</span></label>
+                      {% for lbl in gender_labels %}
+                      <label><input type="radio" name="ef_p2_gender" value="{{ loop.index0 }}"><span style="color:{{ gender_colors[loop.index0] }}">{{ lbl }}</span></label>
+                      {% endfor %}
+                      <label><input type="radio" name="ef_p2_gender" value="-1"><span style="color:#888">Cannot determine</span></label>
                     </div>
                   </div>
                   <div>
@@ -561,8 +562,13 @@ main.container { max-width: 1500px; }
 
 <script>
 const MST_COLORS = {{ mst_colors | tojson }};
-const GENDER_LABELS = ['More maleness','Non-binary','More femaleness'];
-const GENDER_COLORS = ['#4A8BC2','#A0A0A0','#C77DBA'];
+const GENDER_LABELS = {{ gender_labels | tojson }};
+const GENDER_SHORT = {{ gender_short | tojson }};
+const GENDER_COLORS = {{ gender_colors | tojson }};
+// Gender is stored as 0-2; -1 = cannot determine
+const GENDER_NA_COLOR = '#BBBBBB';
+const genderColor = g => (g >= 0 && g <= 2) ? GENDER_COLORS[g] : GENDER_NA_COLOR;
+const genderLabel = (g, short) => (g >= 0 && g <= 2) ? (short ? GENDER_SHORT : GENDER_LABELS)[g] : (short ? 'N/D' : 'Cannot determine');
 const CURRENT_USER_ID = {{ current_user.id if current_user else 'null' }};
 const IS_ADMIN = {{ 'true' if session.get('role') == 'admin' else 'false' }};
 
@@ -648,7 +654,7 @@ function openModal(id) {
   document.getElementById('modalImgMeta').textContent = meta.join(' · ');
 
   const genderHtml = d.perceived_gender !== null
-    ? `<span style="background:${GENDER_COLORS[d.perceived_gender]}22;color:${GENDER_COLORS[d.perceived_gender]};padding:2px 8px;border-radius:4px;font-weight:600">${GENDER_LABELS[d.perceived_gender]}</span>`
+    ? `<span style="background:${genderColor(d.perceived_gender)}22;color:${genderColor(d.perceived_gender)};padding:2px 8px;border-radius:4px;font-weight:600">${genderLabel(d.perceived_gender)}</span>`
     : '–';
 
   const skinHtml = d.perceived_skin_tone
@@ -745,7 +751,7 @@ function enterEditMode() {
   document.getElementById('ef-url-status').textContent = '';
   setRadio('ef_concept_match', d.concept_match === 'Yes' ? 'Yes' : 'No');
   document.getElementById('ef-num_people').value = d.num_people || '1';
-  setRadio('ef_gender', d.perceived_gender !== null ? String(d.perceived_gender) : '2');
+  setRadio('ef_gender', d.perceived_gender !== null ? String(d.perceived_gender) : '');
   document.getElementById('ef-perceived_age').value = d.perceived_age || 'Cannot determine';
   setRadio('ef_skin', String(d.perceived_skin_tone || 0));
   setRadio('ef_suitability', d.suitability === 'Not Suitable' ? 'Not Suitable' : 'Suitable');
@@ -761,7 +767,7 @@ function enterEditMode() {
   const p2Section = document.getElementById('ef-p2-section');
   if (d.annotation_type === 'couple') {
     p2Section.style.display = '';
-    setRadio('ef_p2_gender', d.p2_perceived_gender !== null ? String(d.p2_perceived_gender) : '1');
+    setRadio('ef_p2_gender', d.p2_perceived_gender !== null ? String(d.p2_perceived_gender) : '');
     document.getElementById('ef-p2_perceived_age').value = d.p2_perceived_age || '';
     setRadio('ef_p2_skin', String(d.p2_perceived_skin_tone || 0));
   } else {
@@ -819,7 +825,9 @@ async function saveEdit() {
     image_url:       newUrl || d.image_url,
     concept_match:   document.querySelector('input[name="ef_concept_match"]:checked')?.value,
     num_people:      document.getElementById('ef-num_people').value,
-    perceived_gender: parseInt(document.querySelector('input[name="ef_gender"]:checked')?.value ?? '2'),
+    perceived_gender: document.querySelector('input[name="ef_gender"]:checked')
+                      ? parseInt(document.querySelector('input[name="ef_gender"]:checked').value)
+                      : d.perceived_gender,
     perceived_age:   document.getElementById('ef-perceived_age').value,
     perceived_skin_tone: parseInt(document.querySelector('input[name="ef_skin"]:checked')?.value ?? '0'),
     suitability:     document.querySelector('input[name="ef_suitability"]:checked')?.value,
@@ -893,7 +901,7 @@ async function saveEdit() {
 
 function renderModalView(d) {
   const genderHtml = d.perceived_gender !== null
-    ? `<span style="background:${GENDER_COLORS[d.perceived_gender]}22;color:${GENDER_COLORS[d.perceived_gender]};padding:2px 8px;border-radius:4px;font-weight:600">${GENDER_LABELS[d.perceived_gender]}</span>`
+    ? `<span style="background:${genderColor(d.perceived_gender)}22;color:${genderColor(d.perceived_gender)};padding:2px 8px;border-radius:4px;font-weight:600">${genderLabel(d.perceived_gender)}</span>`
     : '–';
   const skinHtml = d.perceived_skin_tone
     ? `<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${MST_COLORS[d.perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:4px"></span>FST ${d.perceived_skin_tone}`
@@ -925,7 +933,7 @@ function renderModalView(d) {
 
   if (isCouple) {
     const p2GenderHtml = d.p2_perceived_gender !== null
-      ? `<span style="background:${GENDER_COLORS[d.p2_perceived_gender]}22;color:${GENDER_COLORS[d.p2_perceived_gender]};padding:2px 8px;border-radius:4px;font-weight:600">${GENDER_LABELS[d.p2_perceived_gender]}</span>`
+      ? `<span style="background:${genderColor(d.p2_perceived_gender)}22;color:${genderColor(d.p2_perceived_gender)};padding:2px 8px;border-radius:4px;font-weight:600">${genderLabel(d.p2_perceived_gender)}</span>`
       : '–';
     const p2SkinHtml = d.p2_perceived_skin_tone
       ? `<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${MST_COLORS[d.p2_perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:4px"></span>FST ${d.p2_perceived_skin_tone}`
@@ -957,15 +965,14 @@ function updateTableRow(id, d) {
   const cells = row.querySelectorAll('td');
   // cells: thumb(0), term(1), campaign(2), annotator(3), people(4), gender(5), age(6), skin(7), match(8), suit(9), date(10)
   if (cells[4]) cells[4].textContent = d.num_people;
-  const SHORT = ['M.Male','N-B','M.Female'];
   if (cells[5]) {
     const g = d.perceived_gender;
     let gHtml = g !== null
-      ? `<span class="gender-pill" style="background:${GENDER_COLORS[g]}22;color:${GENDER_COLORS[g]}"><span style="width:7px;height:7px;border-radius:50%;background:${GENDER_COLORS[g]};display:inline-block"></span>${SHORT[g]}</span>`
+      ? `<span class="gender-pill" style="background:${genderColor(g)}22;color:${genderColor(g)}"><span style="width:7px;height:7px;border-radius:50%;background:${genderColor(g)};display:inline-block"></span>${genderLabel(g, true)}</span>`
       : '–';
     if (d.annotation_type === 'couple' && d.p2_perceived_gender !== null) {
       const g2 = d.p2_perceived_gender;
-      gHtml += `<br><span class="gender-pill" style="background:${GENDER_COLORS[g2]}22;color:${GENDER_COLORS[g2]};margin-top:2px"><span style="width:7px;height:7px;border-radius:50%;background:${GENDER_COLORS[g2]};display:inline-block"></span>${SHORT[g2]}</span>`;
+      gHtml += `<br><span class="gender-pill" style="background:${genderColor(g2)}22;color:${genderColor(g2)};margin-top:2px"><span style="width:7px;height:7px;border-radius:50%;background:${genderColor(g2)};display:inline-block"></span>${genderLabel(g2, true)}</span>`;
     }
     cells[5].innerHTML = gHtml;
   }

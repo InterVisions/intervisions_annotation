@@ -221,7 +221,7 @@ function renderCoupleCharts(stats, isGlobal) {
 }
 
 function renderGenderMatrix(pairs, total) {
-    const short = ['M.Male', 'N-B', 'M.Female'];
+    const short = {{ gender_short | tojson }};
     const maxVal = Math.max(...pairs.flat(), 1);
 
     let html = '<div class="pm-axis-label" style="text-align:center;margin-bottom:6px">Person 2 →</div>';

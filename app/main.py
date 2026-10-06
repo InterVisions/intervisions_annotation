@@ -1117,9 +1117,12 @@ def admin_viewer():
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
+# Perceived gender presentation. Stored as 0/1/2 (index into these lists); -1 = cannot determine.
+# 1 is a perceived look (androgynous or ambiguous), not a gender identity such as non-binary.
 GENDER_LABELS = [
-    "More maleness", "Non-binary", "More femaleness"
+    "More maleness", "Androgynous / unclear", "More femaleness"
 ]
+GENDER_SHORT = ["M.Male", "Andro/Unclear", "M.Female"]
 
 def compute_task_stats(db, task_id):
     annotations = db.execute(
@@ -1271,7 +1274,7 @@ def inject_globals():
             "#c6b49d", "#bda389", "#af9478", "#a48367", "#886951", "#664e41"
         ],
         "gender_colors": ["#4A8BC2", "#A0A0A0", "#C77DBA"],
-        "gender_short": ["M.Male", "NB", "M.Female"],
+        "gender_short": GENDER_SHORT,
         "dim_colors": {
             "Productive": "#4472C4",
             "Reproductive": "#70AD47",
