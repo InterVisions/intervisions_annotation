@@ -7,25 +7,28 @@ Designed to collect and annotate a balanced fairness evaluation dataset across N
 
 ### Annotator interface
 - **Dashboard** with open/completed tasks and summary stats
-- **Task picker** with term reservation (no two annotators on the same term), extra field selection, and Fraser dimension badges
+- **Task picker**: several annotators can work on the same term (collaborators are shown), extra field selection, and Fraser dimension badges
 - **Annotation view**: paste an image URL → the server downloads it, extracts metadata (resolution, size, format) → annotate with:
-  - Licence (default: CC-BY)
+  - Licence (CC or Others/Unknown; default: CC)
   - Concept match (default: Yes)
   - Suitability (default: Suitable)
   - 3-step perceived gender presentation scale (More maleness / Androgynous or unclear / More femaleness) + Cannot determine (see [Gender coding](#gender-coding))
   - Perceived skin tone on the 6-type Fitzpatrick scale (see [Skin tone coding](#skin-tone-coding)), visual selector with reference popup
   - Perceived age (6 categories)
-  - Optional: perceived disability, body type notes
+  - Optional: perceived disability, body type notes, socio-economic status
   - Free-text intersectional notes
 - Real-time balance indicators (gender distribution, skin tone spread) while annotating
+- **Couple annotations**: in campaigns of type *couple*, gender, age and skin tone are annotated for two people per image
+- **Dataset** viewer and **Balancing** charts (annotators can edit their own annotations)
 - Max 3 concurrent open tasks per annotator
 
 ### Admin interface
 - **Annotator Progress**: who is working on what, how many images, task status
 - **Dataset Overview**: per-campaign table with term counts, active/completed/remaining
 - **Balancing**: interactive charts (gender, skin tone, age) filterable by **global** or **individual term** — with automatic imbalance warnings
-- **Campaigns & Terms**: add/remove campaigns and terms, edit target images per term
-- **Settings**: configure default minimum images per term, apply to existing terms
+- **Viewer**: browse all annotations with filters; view, edit or delete each one
+- **Campaigns & Terms**: add/remove campaigns (single or couple annotation type) and terms, edit target images per term
+- **Settings**: configure default minimum images per term, apply to existing terms; backup/restore of users, terms and settings as JSON
 - **User Management**: create annotator and admin accounts
 - **CSV Export**: download all annotations as a CSV file
 
@@ -149,7 +152,7 @@ cp /data/intervisions/intervisions.db ~/backup-$(date +%Y%m%d).db
 ## Project structure
 
 ```
-intervisions/
+intervisions_annotation/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # Flask app: routes, models, API
@@ -167,22 +170,25 @@ intervisions/
 │       ├── admin_balance.html
 │       ├── admin_campaigns.html
 │       ├── admin_settings.html
-│       └── admin_users.html
+│       ├── admin_users.html
+│       └── admin_viewer.html
 ├── intervisions.service     # systemd service file for deployment
 ├── requirements.txt
+├── eu-funded.png
 └── README.md
 ```
 
 ## Database schema
 
 - **users**: id, username, password_hash, role, display_name
-- **campaigns**: id (C1-C8), name, dimension, description
+- **campaigns**: id, name, dimension, description, annotation_type (single / couple)
 - **terms**: id, campaign_id, term, dimensions, target_images
 - **tasks**: id, term_id, annotator_id, status, extra_fields
-- **annotations**: id, task_id, image_url, image_path, image metadata, all annotation fields
+- **annotations**: id, task_id, image_url, image_path, image metadata, all annotation fields (`p2_*` fields for the second person in couple annotations)
 - **settings**: key-value store for platform configuration
+- **user_logins**: login history (user_id, timestamp)
 
-The database is pre-seeded with 8 campaigns and 42 terms from the InterVisions use-case scenario document.
+The database is pre-seeded with 8 campaigns (C1–C8) from the InterVisions use-case scenario document; terms are added from the admin Campaigns page.
 
 ## Gender coding
 
