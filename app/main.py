@@ -19,7 +19,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 app.config["DATABASE"] = os.environ.get("DATABASE_PATH", "/data/intervisions.db")
 app.config["UPLOAD_FOLDER"] = os.environ.get("UPLOAD_FOLDER", "/data/images")
-app.config["MAX_OPEN_TASKS"] = 3
+app.config["MAX_OPEN_TASKS"] = 15
 
 # ─── Database ───────────────────────────────────────────────────────────────
 

@@ -20,7 +20,7 @@ Designed to collect and annotate a balanced fairness evaluation dataset across N
 - Real-time balance indicators (gender distribution, skin tone spread) while annotating
 - **Couple annotations**: in campaigns of type *couple*, gender, age and skin tone are annotated for two people per image
 - **Dataset** viewer and **Balancing** charts (annotators can edit their own annotations)
-- Max 3 concurrent open tasks per annotator
+- Max 15 concurrent open tasks per annotator
 
 ### Admin interface
 - **Annotator Progress**: who is working on what, how many images, task status
