@@ -540,6 +540,30 @@ def admin_progress():
     return render_template("admin_progress.html",
         annotators=annotators, annotator_tasks=annotator_tasks, tab="progress")
 
+@app.route("/admin/task/<int:task_id>/reopen", methods=["POST"])
+@admin_required
+def admin_reopen_task(task_id):
+    db = get_db()
+    task = db.execute("""
+        SELECT t.annotator_id, t.status, te.term, u.display_name
+        FROM tasks t JOIN terms te ON t.term_id = te.id JOIN users u ON t.annotator_id = u.id
+        WHERE t.id = ?
+    """, (task_id,)).fetchone()
+    if not task or task["status"] != "completed":
+        flash("Task not found or not completed", "error")
+        return redirect(url_for("admin_progress"))
+    open_count = db.execute(
+        "SELECT COUNT(*) as c FROM tasks WHERE annotator_id = ? AND status = 'in_progress'",
+        (task["annotator_id"],)
+    ).fetchone()["c"]
+    if open_count >= app.config["MAX_OPEN_TASKS"]:
+        flash(f"{task['display_name']} already has {open_count} open tasks (max {app.config['MAX_OPEN_TASKS']})", "error")
+        return redirect(url_for("admin_progress"))
+    db.execute("UPDATE tasks SET status = 'in_progress', completed_at = NULL WHERE id = ?", (task_id,))
+    db.commit()
+    flash(f"Reopened \"{task['term']}\" for {task['display_name']}", "success")
+    return redirect(url_for("admin_progress"))
+
 @app.route("/admin/dataset")
 @admin_required
 def admin_dataset():

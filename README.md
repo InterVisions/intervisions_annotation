@@ -23,7 +23,7 @@ Designed to collect and annotate a balanced fairness evaluation dataset across N
 - Max 15 concurrent open tasks per annotator
 
 ### Admin interface
-- **Annotator Progress**: who is working on what, how many images, task status
+- **Annotator Progress**: who is working on what, how many images, task status; reopen completed tasks
 - **Dataset Overview**: per-campaign table with term counts, active/completed/remaining
 - **Balancing**: interactive charts (gender, skin tone, age) filterable by **global** or **individual term** — with automatic imbalance warnings
 - **Viewer**: browse all annotations with filters; view, edit or delete each one
