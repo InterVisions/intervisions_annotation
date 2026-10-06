@@ -205,7 +205,8 @@ CAMPAIGNS_DATA = [
 
 def seed_campaigns(db):
     for cid, name, dim, desc in CAMPAIGNS_DATA:
-        db.execute("INSERT OR IGNORE INTO campaigns VALUES (?, ?, ?, ?)", (cid, name, dim, desc))
+        db.execute("INSERT OR IGNORE INTO campaigns (id, name, dimension, description) VALUES (?, ?, ?, ?)",
+                   (cid, name, dim, desc))
     db.commit()
 
 # ─── Auth ───────────────────────────────────────────────────────────────────
