@@ -653,43 +653,7 @@ function openModal(id) {
   if (d.licence) meta.push('Licence: ' + d.licence);
   document.getElementById('modalImgMeta').textContent = meta.join(' · ');
 
-  const genderHtml = d.perceived_gender !== null
-    ? `<span style="background:${genderColor(d.perceived_gender)}22;color:${genderColor(d.perceived_gender)};padding:2px 8px;border-radius:4px;font-weight:600">${genderLabel(d.perceived_gender)}</span>`
-    : '–';
-
-  const skinHtml = d.perceived_skin_tone
-    ? `<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${MST_COLORS[d.perceived_skin_tone-1]};border:1px solid rgba(0,0,0,0.2);vertical-align:middle;margin-right:4px"></span>FST ${d.perceived_skin_tone}`
-    : '–';
-
-  const matchHtml = `<span style="background:${d.concept_match==='Yes'?'#e8f5e9':'#fce4ec'};color:${d.concept_match==='Yes'?'#2e7d32':'#c62828'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${d.concept_match}</span>`;
-  const suitHtml  = `<span style="background:${d.suitability==='Suitable'?'#e8f5e9':'#fce4ec'};color:${d.suitability==='Suitable'?'#2e7d32':'#c62828'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">${d.suitability}</span>`;
-
-  const fields = [
-    ['Campaign',    d.campaign],
-    ['Term',        d.term],
-    ['Annotator',   d.annotator],
-    ['Concept match', matchHtml],
-    ['Suitability', suitHtml],
-    ['# People',    d.num_people],
-    ['Gender',      genderHtml],
-    ['Age',         d.perceived_age],
-    ['Skin tone',   skinHtml],
-    ['Disability',  d.perceived_disability || '–'],
-    ['Body type',   d.body_type_notes || '–'],
-    ['Soc. status', d.perceived_socioeconomic_status || '–'],
-    ['Annotated',   d.created_at ? d.created_at.slice(0,16).replace('T',' ') : '–'],
-  ];
-
-  let html = fields.map(([label, val]) =>
-    `<div class="mf"><div class="mf-label">${label}</div><div class="mf-value">${val}</div></div>`
-  ).join('');
-
-  if (d.suitability_reason)
-    html += `<div style="grid-column:1/-1"><div class="mf-label">Suitability reason</div><div class="mf-notes">${d.suitability_reason}</div></div>`;
-  if (d.intersectional_notes)
-    html += `<div style="grid-column:1/-1"><div class="mf-label">Intersectional notes</div><div class="mf-notes">${d.intersectional_notes}</div></div>`;
-
-  document.getElementById('modalFields').innerHTML = html;
+  renderModalView(d);
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -946,9 +910,6 @@ function renderModalView(d) {
         <div class="mf"><div class="mf-label">Skin tone</div><div class="mf-value">${p2SkinHtml}</div></div>
         <div class="mf"><div class="mf-label">Disability</div><div class="mf-value">${d.p2_perceived_disability || '–'}</div></div>
       </div>
-    </div>`;
-    html += `<div style="grid-column:1/-1;border-top:1px solid var(--gray-200);margin-top:6px;padding-top:10px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#7c3aed;margin-bottom:8px">Couple</div>
     </div>`;
   }
 
