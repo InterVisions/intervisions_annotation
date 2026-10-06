@@ -161,11 +161,11 @@
                     </div>
 
                     <div class="form-group" style="padding:8px;background:#fff;border-radius:6px;border:1px solid #eee">
-                        <label class="form-label" style="font-size:11px">Skin Tone (FST)</label>
+                        <label class="form-label" style="font-size:11px">Skin Tone <span class="form-hint">(FST 1 lightest – 6 darkest)</span></label>
                         <div class="mst-selector" id="mstSelector1">
                             {% for color in mst_colors %}
                             <button type="button" class="mst-btn" data-value="{{ loop.index }}"
-                                style="background:{{ color }}" title="FST {{ loop.index }}"
+                                style="background:{{ color }}" title="FST {{ loop.index }}{% if loop.first %} (lightest){% elif loop.last %} (darkest){% endif %}"
                                 onclick="setMST({{ loop.index }},1)"></button>
                             {% endfor %}
                             <button type="button" class="mst-na-btn" onclick="setMST(0,1)">?</button>
@@ -235,11 +235,11 @@
                     </div>
 
                     <div class="form-group" style="padding:8px;background:#fff;border-radius:6px;border:1px solid #eee">
-                        <label class="form-label" style="font-size:11px">Skin Tone (FST)</label>
+                        <label class="form-label" style="font-size:11px">Skin Tone <span class="form-hint">(FST 1 lightest – 6 darkest)</span></label>
                         <div class="mst-selector" id="mstSelector2">
                             {% for color in mst_colors %}
                             <button type="button" class="mst-btn" data-value="{{ loop.index }}"
-                                style="background:{{ color }}" title="FST {{ loop.index }}"
+                                style="background:{{ color }}" title="FST {{ loop.index }}{% if loop.first %} (lightest){% elif loop.last %} (darkest){% endif %}"
                                 onclick="setMST({{ loop.index }},2)"></button>
                             {% endfor %}
                             <button type="button" class="mst-na-btn" onclick="setMST(0,2)">?</button>
@@ -307,13 +307,13 @@
                 <!-- Skin Tone -->
                 <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
                     <label class="form-label">
-                        Perceived Skin Tone <span class="form-hint">(Fitzpatrick Scale)</span>
+                        Perceived Skin Tone <span class="form-hint">(Fitzpatrick: 1 lightest – 6 darkest)</span>
                         <button type="button" class="mst-ref-toggle" onclick="toggleMSTRef()">Reference</button>
                     </label>
                     <div class="mst-selector" id="mstSelector1">
                         {% for color in mst_colors %}
                         <button type="button" class="mst-btn" data-value="{{ loop.index }}"
-                            style="background:{{ color }}" title="FST {{ loop.index }}"
+                            style="background:{{ color }}" title="FST {{ loop.index }}{% if loop.first %} (lightest){% elif loop.last %} (darkest){% endif %}"
                             onclick="setMST({{ loop.index }})"></button>
                         {% endfor %}
                         <button type="button" class="mst-na-btn" onclick="setMST(0)">?</button>
@@ -325,7 +325,7 @@
                             {% for color in mst_colors %}
                             <div style="text-align:center">
                                 <div class="mst-ref-swatch" style="background:{{ color }}"></div>
-                                <div class="mst-ref-label">FST {{ loop.index }}</div>
+                                <div class="mst-ref-label">FST {{ loop.index }}{% if loop.first %}<br>lightest{% elif loop.last %}<br>darkest{% endif %}</div>
                             </div>
                             {% endfor %}
                         </div>

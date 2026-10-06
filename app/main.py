@@ -165,6 +165,32 @@ def migrate_db():
             db.execute(f"ALTER TABLE annotations ADD COLUMN {col} {typ}")
     db.commit()
     db.close()
+    migrate_skin_tone_order()
+
+def migrate_skin_tone_order():
+    """One-time recode of skin tone values to Fitzpatrick order (1 = lightest, 6 = darkest).
+    Swatches used to run darkest-to-lightest, so stored values are flipped (v -> 7 - v).
+    Flag check and update share one IMMEDIATE transaction so that concurrent gunicorn
+    workers cannot both apply the flip (which would undo it)."""
+    db = sqlite3.connect(app.config["DATABASE"], timeout=30, isolation_level=None)
+    try:
+        db.execute("BEGIN IMMEDIATE")
+        done = db.execute(
+            "SELECT 1 FROM settings WHERE key = 'skin_tone_fitzpatrick_order'"
+        ).fetchone()
+        if not done:
+            for col in ("perceived_skin_tone", "p2_perceived_skin_tone"):
+                db.execute(f"UPDATE annotations SET {col} = 7 - {col} WHERE {col} BETWEEN 1 AND 6")
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES ('skin_tone_fitzpatrick_order', ?)",
+                (datetime.utcnow().isoformat(timespec="seconds"),)
+            )
+        db.execute("COMMIT")
+    except Exception:
+        db.execute("ROLLBACK")
+        raise
+    finally:
+        db.close()
 
 CAMPAIGNS_DATA = [
     ("C1", "Vocational Training (FP/TVET)", "Productive", "Promoting the local vocational training centre"),
@@ -1240,8 +1266,9 @@ def inject_globals():
     return {
         "current_user": get_current_user(),
         "gender_labels": GENDER_LABELS,
+        # Fitzpatrick types I–VI: index 0 = type I (lightest), index 5 = type VI (darkest)
         "mst_colors": [
-            "#664e41", "#886951", "#a48367", "#af9478", "#bda389", "#c6b49d"
+            "#c6b49d", "#bda389", "#af9478", "#a48367", "#886951", "#664e41"
         ],
         "gender_colors": ["#4A8BC2", "#A0A0A0", "#C77DBA"],
         "gender_short": ["M.Male", "NB", "M.Female"],

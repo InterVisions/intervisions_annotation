@@ -275,7 +275,6 @@ main.container { max-width: 1500px; }
     </tr>
   </thead>
   <tbody>
-  {% set mst_colors = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'] %}
   {% set gcols = ['#4A8BC2','#A0A0A0','#C77DBA'] %}
   {% set glbls = ['M.Male','N-B','M.Female'] %}
   {% for ann in annotations %}
@@ -461,17 +460,19 @@ main.container { max-width: 1500px; }
               </select>
             </div>
             <div>
-              <div class="ef-label">Skin tone (FST 1–6)</div>
+              <div class="ef-label">Skin tone (FST 1 lightest – 6 darkest)</div>
               <div class="ef-radio-group" id="ef-perceived_skin_tone">
-                {% set mst_c = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'] %}
                 {% for i in range(1, 7) %}
                 <label title="FST {{ i }}">
                   <input type="radio" name="ef_skin" value="{{ i }}">
                   <span style="display:inline-flex;align-items:center;gap:4px">
-                    <span style="width:12px;height:12px;border-radius:50%;background:{{ mst_c[i-1] }};border:1px solid rgba(0,0,0,0.2);display:inline-block"></span>{{ i }}
+                    <span style="width:12px;height:12px;border-radius:50%;background:{{ mst_colors[i-1] }};border:1px solid rgba(0,0,0,0.2);display:inline-block"></span>{{ i }}
                   </span>
                 </label>
                 {% endfor %}
+                <label title="Cannot determine">
+                  <input type="radio" name="ef_skin" value="0"><span>?</span>
+                </label>
               </div>
             </div>
             <!-- Person 2 — shown only for couple annotations -->
@@ -500,17 +501,19 @@ main.container { max-width: 1500px; }
                     </select>
                   </div>
                   <div>
-                    <div class="ef-label">Skin tone (FST 1–6)</div>
+                    <div class="ef-label">Skin tone (FST 1 lightest – 6 darkest)</div>
                     <div class="ef-radio-group" id="ef-p2_perceived_skin_tone">
-                      {% set mst_c = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'] %}
                       {% for i in range(1, 7) %}
                       <label title="FST {{ i }}">
                         <input type="radio" name="ef_p2_skin" value="{{ i }}">
                         <span style="display:inline-flex;align-items:center;gap:4px">
-                          <span style="width:12px;height:12px;border-radius:50%;background:{{ mst_c[i-1] }};border:1px solid rgba(0,0,0,0.2);display:inline-block"></span>{{ i }}
+                          <span style="width:12px;height:12px;border-radius:50%;background:{{ mst_colors[i-1] }};border:1px solid rgba(0,0,0,0.2);display:inline-block"></span>{{ i }}
                         </span>
                       </label>
                       {% endfor %}
+                      <label title="Cannot determine">
+                        <input type="radio" name="ef_p2_skin" value="0"><span>?</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -557,7 +560,7 @@ main.container { max-width: 1500px; }
 </div>
 
 <script>
-const MST_COLORS = ['#664e41','#886951','#a48367','#af9478','#bda389','#c6b49d'];
+const MST_COLORS = {{ mst_colors | tojson }};
 const GENDER_LABELS = ['More maleness','Non-binary','More femaleness'];
 const GENDER_COLORS = ['#4A8BC2','#A0A0A0','#C77DBA'];
 const CURRENT_USER_ID = {{ current_user.id if current_user else 'null' }};
@@ -744,7 +747,7 @@ function enterEditMode() {
   document.getElementById('ef-num_people').value = d.num_people || '1';
   setRadio('ef_gender', d.perceived_gender !== null ? String(d.perceived_gender) : '2');
   document.getElementById('ef-perceived_age').value = d.perceived_age || 'Cannot determine';
-  setRadio('ef_skin', d.perceived_skin_tone ? String(d.perceived_skin_tone) : '1');
+  setRadio('ef_skin', String(d.perceived_skin_tone || 0));
   setRadio('ef_suitability', d.suitability === 'Not Suitable' ? 'Not Suitable' : 'Suitable');
   document.getElementById('ef-suitability_reason').value = d.suitability_reason || '';
   document.getElementById('ef-suitability_reason_wrap').style.display =
@@ -760,7 +763,7 @@ function enterEditMode() {
     p2Section.style.display = '';
     setRadio('ef_p2_gender', d.p2_perceived_gender !== null ? String(d.p2_perceived_gender) : '1');
     document.getElementById('ef-p2_perceived_age').value = d.p2_perceived_age || '';
-    if (d.p2_perceived_skin_tone) setRadio('ef_p2_skin', String(d.p2_perceived_skin_tone));
+    setRadio('ef_p2_skin', String(d.p2_perceived_skin_tone || 0));
   } else {
     p2Section.style.display = 'none';
   }
@@ -791,6 +794,7 @@ function exitEditMode() {
 }
 
 function setRadio(name, value) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.checked = false);
   const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
   if (el) el.checked = true;
 }

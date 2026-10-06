@@ -13,11 +13,11 @@ Designed to collect and annotate a balanced fairness evaluation dataset across N
   - Concept match (default: Yes)
   - Suitability (default: Suitable)
   - 5-step gender presentation scale (Predominantly feminine → Predominantly masculine + Cannot determine)
-  - Monk Skin Tone 10-level visual selector with reference popup
+  - Perceived skin tone on the 6-type Fitzpatrick scale (see [Skin tone coding](#skin-tone-coding)), visual selector with reference popup
   - Perceived age (6 categories)
   - Optional: perceived disability, body type notes
   - Free-text intersectional notes
-- Real-time balance indicators (gender distribution, MST spread) while annotating
+- Real-time balance indicators (gender distribution, skin tone spread) while annotating
 - Max 3 concurrent open tasks per annotator
 
 ### Admin interface
@@ -183,6 +183,23 @@ intervisions/
 - **settings**: key-value store for platform configuration
 
 The database is pre-seeded with 8 campaigns and 42 terms from the InterVisions use-case scenario document.
+
+## Skin tone coding
+
+`perceived_skin_tone` and `p2_perceived_skin_tone` use the Fitzpatrick scale:
+
+| Value | Meaning |
+|---|---|
+| 1 | Fitzpatrick type I — lightest |
+| 2–5 | types II–V, progressively darker |
+| 6 | Fitzpatrick type VI — darkest |
+| 0 | Cannot determine |
+
+**Recoding note.** Earlier versions of the app showed the swatches in reverse order (1 = darkest, 6 = lightest).
+On first start after the fix, existing annotations are recoded automatically (`v → 7 − v` for values 1–6; 0 and empty
+values are untouched). The migration runs once and records its date in the `settings` table under
+`skin_tone_fitzpatrick_order`. **CSV exports made before that date use the old, reversed coding** — convert them
+with `7 − value` for values 1–6.
 
 ## Default credentials
 
