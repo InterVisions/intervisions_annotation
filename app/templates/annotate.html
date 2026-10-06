@@ -396,8 +396,9 @@ const GENDER_COLORS = {{ gender_colors | tojson }};
 const MST_COLORS = {{ mst_colors | tojson }};
 
 let formState = {
-    gender: null,  skinTone: 0,  numPeople: IS_COUPLE ? '2' : '1',   // gender must be chosen per image
-    p2Gender: null, p2SkinTone: 0,
+    // gender and skin tone must be chosen for every image (null = not chosen yet)
+    gender: null,  skinTone: null,  numPeople: IS_COUPLE ? '2' : '1',
+    p2Gender: null, p2SkinTone: null,
 };
 
 // ─── Single-person helpers ───────────────────────────────────────────────────
@@ -434,14 +435,16 @@ function setMST(val, person) {
         if (p === 1) formState.skinTone = val; else formState.p2SkinTone = val;
         document.querySelectorAll('#mstSelector' + p + ' .mst-btn').forEach(b =>
             b.classList.toggle('active', parseInt(b.dataset.value) === val));
+        document.querySelector('#mstSelector' + p + ' .mst-na-btn').classList.toggle('active', val === 0);
         document.getElementById('mstLabel' + p).textContent =
-            val === 0 ? 'Cannot determine' : 'Selected: FST ' + val;
+            val === null ? 'Select a tone' : val === 0 ? 'Cannot determine' : 'Selected: FST ' + val;
     } else {
         formState.skinTone = val;
         document.querySelectorAll('#mstSelector1 .mst-btn').forEach(b =>
             b.classList.toggle('active', parseInt(b.dataset.value) === val));
+        document.querySelector('#mstSelector1 .mst-na-btn').classList.toggle('active', val === 0);
         document.getElementById('mstLabel').textContent =
-            val === 0 ? 'Cannot determine' : 'Selected: FST ' + val;
+            val === null ? 'Select a tone' : val === 0 ? 'Cannot determine' : 'Selected: FST ' + val;
     }
 }
 
@@ -538,11 +541,16 @@ async function saveAnnotation() {
     }
 
     const hasPeople = formState.numPeople !== '0';
-    if (hasPeople && (formState.gender === null || (IS_COUPLE && formState.p2Gender === null))) {
-        document.getElementById('saveStatus').innerHTML =
-            '<span style="color:#e74c3c">Please select a perceived gender' + (IS_COUPLE ? ' for both people' : '') +
-            ' (or "Cannot determine")</span>';
-        return;
+    if (hasPeople) {
+        const missing = [];
+        if (formState.gender === null || (IS_COUPLE && formState.p2Gender === null)) missing.push('gender');
+        if (formState.skinTone === null || (IS_COUPLE && formState.p2SkinTone === null)) missing.push('skin tone');
+        if (missing.length) {
+            document.getElementById('saveStatus').innerHTML =
+                '<span style="color:#e74c3c">Please select ' + missing.join(' and ') +
+                (IS_COUPLE ? ' for both people' : '') + ' (or "Cannot determine" / "?")</span>';
+            return;
+        }
     }
 
     const data = {
@@ -550,7 +558,7 @@ async function saveAnnotation() {
         licence: document.getElementById('fLicence').value,
         num_people: formState.numPeople,
         perceived_gender: hasPeople ? formState.gender : null,
-        perceived_skin_tone: formState.skinTone,
+        perceived_skin_tone: hasPeople ? formState.skinTone : null,
         intersectional_notes: document.getElementById('fNotes').value || null,
     };
 
@@ -642,7 +650,8 @@ async function saveAnnotation() {
             document.getElementById('imageMeta').style.display = 'none';
             document.getElementById('imageSource').textContent = '';
             document.getElementById('fNotes').value = '';
-            if (IS_COUPLE) { setGender(null, 1); setGender(null, 2); } else { setGender(null); }
+            if (IS_COUPLE) { setGender(null, 1); setGender(null, 2); setMST(null, 1); setMST(null, 2); }
+            else { setGender(null); setMST(null); }
             document.getElementById('imageUrl').focus();
 
             setTimeout(() => {

@@ -176,6 +176,7 @@ textarea.form-control { resize: vertical; }
     border: 1px solid var(--gray-300); border-radius: 4px;
     padding: 4px 6px; cursor: pointer; margin-left: 4px; font-family: inherit;
 }
+.mst-na-btn.active { color: var(--blue); background: var(--blue-light); border-color: var(--blue); font-weight: 600; }
 .mst-label { font-size: 11px; color: var(--gray-600); margin-top: 4px; }
 .mst-ref-toggle {
     font-size: 11px; color: var(--blue); background: none; border: none;
