@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Stratified sample for the cross-annotation (inter-annotator agreement) study.
 
-Unit of analysis: one annotated person. Couple images give two units (person_idx 1 and 2).
+Unit of analysis: one annotated person. Couple images are left out of the study, so every unit
+is the single annotated person of an image (person_idx 1).
 Strata: prompt x FST group of the original label (1-2, 3-4, 5-6, 0 = cannot determine).
 
 Default sizes (all configurable):
@@ -12,15 +13,16 @@ Default sizes (all configurable):
   then each prompt is topped up to --min-per-prompt people.
 
 Within a stratum the selection is random (fixed --seed) and balanced between original annotators.
-If one person of a couple image is selected, the other is added too. pi is computed afterwards as
-selected / available in each stratum, and weight = 1 / pi.
+pi = selected / available in each stratum, and weight = 1 / pi.
 
 Each unit goes to an annotator who did not annotate it (with two annotators, the other one).
 --intra N adds N units per annotator from their own images (phase "intra").
+--test-user U adds --test-n units for U (phase "test") to try the interface; the analysis ignores them.
 
 Usage:
-  python scripts/xa_sample.py --db /data/intervisions/intervisions.db --annotators alexia,blanca -o sample.csv
-  python scripts/xa_sample.py --csv intervisions_annotations.csv --annotators alexia,blanca -o sample.csv
+  python scripts/xa_sample.py --db /data/intervisions/intervisions.db -o sample.csv
+  python scripts/xa_sample.py --csv intervisions_annotations.csv -o sample.csv
+  python scripts/xa_sample.py --db ... --test-user lluis -o sample.csv
 """
 import argparse
 import csv
@@ -80,23 +82,21 @@ def build_units(rows, annotators):
         if r["annotator"] not in annotators:
             skipped["annotator not in study"] += 1
             continue
+        if r["annotation_type"] == "couple":
+            skipped["couple image (not in study)"] += 1
+            continue
         if str(r["num_people"]) == "0":
             skipped["no people"] += 1
             continue
-        persons = [(1, r["perceived_gender"], r["perceived_skin_tone"])]
-        if r["annotation_type"] == "couple":
-            persons.append((2, r["p2_perceived_gender"], r["p2_perceived_skin_tone"]))
-        for idx, g, st in persons:
-            g, st = to_int(g), to_int(st)
-            if g is None or st is None or fst_group(st) is None:
-                skipped[f"missing gender or skin tone (person {idx})"] += 1
-                continue
-            units.append({
-                "image_id": int(r["annotation_id"]), "person_idx": idx, "prompt": r["term"],
-                "couple": r["annotation_type"] == "couple", "original_annotator": r["annotator"],
-                "group": fst_group(st),
-            })
-    units.sort(key=lambda u: (u["image_id"], u["person_idx"]))
+        g, st = to_int(r["perceived_gender"]), to_int(r["perceived_skin_tone"])
+        if g is None or st is None or fst_group(st) is None:
+            skipped["missing gender or skin tone"] += 1
+            continue
+        units.append({
+            "image_id": int(r["annotation_id"]), "person_idx": 1, "prompt": r["term"],
+            "original_annotator": r["annotator"], "group": fst_group(st),
+        })
+    units.sort(key=lambda u: u["image_id"])
     return units, skipped
 
 
@@ -135,8 +135,9 @@ def main():
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--db", help="SQLite database of the platform")
     src.add_argument("--csv", help="CSV export of the platform (Export CSV)")
-    ap.add_argument("--annotators", required=True,
-                    help="comma-separated usernames taking part in the study (original annotators and re-annotators)")
+    ap.add_argument("--annotators", default="alexia,blanca",
+                    help="comma-separated usernames taking part in the study, as original annotators and "
+                         "re-annotators (default: alexia,blanca)")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--cap-56", type=int, default=50, help="global cap for FST 5-6 (default 50)")
     ap.add_argument("--n-34", type=int, default=65, help="total FST 3-4 units (default 65)")
@@ -144,6 +145,8 @@ def main():
     ap.add_argument("--min-per-prompt", type=int, default=10)
     ap.add_argument("--intra", type=int, default=0,
                     help="units per annotator from their own images for intra-annotator agreement (default 0)")
+    ap.add_argument("--test-user", help="also add test units for this user (phase 'test', ignored by the analysis)")
+    ap.add_argument("--test-n", type=int, default=20, help="number of test units (default 20)")
     ap.add_argument("-o", "--output", default="sample.csv")
     args = ap.parse_args()
 
@@ -189,16 +192,6 @@ def main():
     for key in sorted(strata):
         for u in select_balanced(strata[key], n[key], rng):
             selected.add((u["image_id"], u["person_idx"]))
-    # Couples: include both people of every sampled couple image
-    by_image = defaultdict(list)
-    for u in units:
-        by_image[u["image_id"]].append(u)
-    added_partners = 0
-    for image_id, person_idx in sorted(selected):
-        for u in by_image[image_id]:
-            if (u["image_id"], u["person_idx"]) not in selected:
-                selected.add((u["image_id"], u["person_idx"]))
-                added_partners += 1
     sample = [u for u in units if (u["image_id"], u["person_idx"]) in selected]
 
     # ── pi and weights: selected / available per stratum ──
@@ -209,42 +202,39 @@ def main():
         u["weight"] = 1 / u["pi"]
         u["phase"] = "inter"
 
-    # ── Re-annotator: someone other than the original annotator, same person for a whole image ──
+    # ── Re-annotator: someone other than the original annotator (least loaded if there are several) ──
     load = Counter()
-    images = sorted({u["image_id"] for u in sample})
-    rng.shuffle(images)
-    sample_by_image = defaultdict(list)
-    for u in sample:
-        sample_by_image[u["image_id"]].append(u)
-    for image_id in images:
-        us = sample_by_image[image_id]
-        others = [a for a in annotators if a != us[0]["original_annotator"]]
+    order = list(sample)
+    rng.shuffle(order)
+    for u in order:
+        others = [a for a in annotators if a != u["original_annotator"]]
         rng.shuffle(others)
-        rean = min(others, key=lambda a: load[a])
-        for u in us:
-            u["reannotator"] = rean
-        load[rean] += len(us)
+        u["reannotator"] = min(others, key=lambda a: load[a])
+        load[u["reannotator"]] += 1
 
     # ── Optional intra-annotator phase ──
     intra = []
     if args.intra > 0:
         for a in annotators:
             own = [u for u in units if u["original_annotator"] == a]
-            own_images = sorted({u["image_id"] for u in own})
-            rng.shuffle(own_images)
-            picked = []
-            for image_id in own_images:
-                if len(picked) >= args.intra:
-                    break
-                picked.extend(by_image[image_id])
+            picked = rng.sample(own, min(args.intra, len(own)))
             pi = len(picked) / len(own) if own else 0
             for u in picked:
                 intra.append(dict(u, reannotator=a, phase="intra", pi=pi, weight=1 / pi))
 
+    # ── Optional test units (separate RNG, so the study sample does not depend on them) ──
+    test = []
+    if args.test_user:
+        trng = random.Random(f"test-{args.seed}")
+        pool = [u for u in units if u["original_annotator"] != args.test_user]
+        for u in trng.sample(pool, min(args.test_n, len(pool))):
+            test.append(dict(u, reannotator=args.test_user, phase="test", pi=1.0, weight=1.0))
+
     # ── Write ──
-    out = sample + intra
+    out = sample + intra + test
     for u in out:
         assert u["phase"] == "intra" or u["reannotator"] != u["original_annotator"]
+        assert u["phase"] == "test" or u["reannotator"] in annotators
     with open(args.output, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(OUT_COLUMNS)
@@ -254,11 +244,11 @@ def main():
                         f'{u["pi"]:.6f}', f'{u["weight"]:.6f}', u["phase"]])
 
     # ── Summary ──
-    print(f"seed={args.seed}  population={len(units)} units from {len(by_image)} images", file=sys.stderr)
+    print(f"seed={args.seed}  population={len(units)} units", file=sys.stderr)
     for reason, c in sorted(skipped.items()):
         print(f"  skipped: {c} ({reason})", file=sys.stderr)
-    print(f"sample: {len(sample)} units ({added_partners} added as couple partners)"
-          + (f" + {len(intra)} intra units" if intra else ""), file=sys.stderr)
+    print(f"sample: {len(sample)} units" + (f" + {len(intra)} intra units" if intra else "")
+          + (f" + {len(test)} test units for {args.test_user}" if test else ""), file=sys.stderr)
     print(f"\n{'prompt':55s} " + " ".join(f"{'FST ' + g:>12s}" for g in GROUPS) + f" {'total':>6s}",
           file=sys.stderr)
     for p in prompts:

@@ -26,7 +26,8 @@
         </tbody>
     </table>
     <p style="font-size:12px;color:var(--gray-500);margin-top:8px">
-        A unit is one person. Couple images contain two units and are shown to the re-annotator as one item.
+        A unit is one person (couple images are not part of the study). Phase <em>test</em> units are only for
+        trying the interface; the analysis ignores them.
         The export has one row per unit with the sample information, the original labels and the new labels.
     </p>
     {% else %}
@@ -39,7 +40,7 @@
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
         Upload the <code>sample.csv</code> produced by <code>scripts/xa_sample.py</code>
         (columns: image_id, person_idx, prompt, original_annotator, reannotator, stratum, pi, weight, and optionally phase).
-        The whole file is rejected if any row is invalid, e.g. a unit assigned to its original annotator outside the intra phase.
+        The whole file is rejected if any row is invalid, e.g. a couple image or a unit assigned to its original annotator outside the intra phase.
         Display order is shuffled per re-annotator across prompts and strata. You can import more files later (e.g. the intra phase).
     </p>
     <form method="POST" action="{{ url_for('admin_xa_import') }}" enctype="multipart/form-data"
@@ -49,7 +50,20 @@
     </form>
 </div>
 
-{% if totals.units and not totals.done %}
+{% if totals.test_units %}
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Test units</h3>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
+        Remove the {{ totals.test_units }} test units and any answers given to them. Study units are not affected.
+    </p>
+    <form method="POST" action="{{ url_for('admin_xa_remove_test') }}"
+          onsubmit="return confirm('Remove all test units and their answers?')">
+        <button type="submit" class="btn btn-secondary">Remove test units</button>
+    </form>
+</div>
+{% endif %}
+
+{% if totals.units and not totals.study_done %}
 <div class="card">
     <h3 class="card-title" style="margin-bottom:12px">Reset</h3>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">

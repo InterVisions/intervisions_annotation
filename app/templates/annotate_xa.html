@@ -1,20 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Cross-annotation - InterVisions{% endblock %}
 
-{# Blind re-annotation view. It must not show original labels, the prompt, the stratum,
-   the original annotator or any balance counter. #}
+{# Blind re-annotation view: only the image and the three attributes. It must not show the prompt,
+   URL, licence, notes, original labels, stratum, original annotator or any balance counter. #}
+
+{% block head %}
+<style>
+.age-selector { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.age-btn { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff;
+           font-family: inherit; font-size: 13px; cursor: pointer; }
+.age-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 700; }
+.xa-image { display: flex; align-items: center; justify-content: center; min-height: 420px; }
+.xa-image img { max-width: 100%; max-height: 72vh; object-fit: contain; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
     <div>
         <a href="{{ url_for('annotator_dashboard') }}" style="color:var(--blue);font-size:13px;text-decoration:none">← Dashboard</a>
         <h2 style="margin:4px 0 0">Cross-annotation</h2>
         <div style="font-size:13px;color:var(--gray-500);margin-top:2px">
-            {% if finished %}
-            All {{ total }} items done
-            {% else %}
-            Item {{ index + 1 }} of {{ total }} · {{ done_count }} done
-            {% endif %}
+            {% if finished %}All {{ total }} items done{% else %}Item {{ index + 1 }} of {{ total }} · {{ done_count }} done{% endif %}
         </div>
     </div>
     {% if not finished %}
@@ -32,84 +39,49 @@
 </div>
 {% else %}
 <div class="two-col">
-    <div>
-        <div class="card">
-            <div class="image-preview" id="imagePreview" style="min-height:300px">
-                <span style="color:#999">Loading...</span>
-            </div>
-            <div style="font-size:11px;margin-top:6px">
-                <a href="{{ image_url }}" target="_blank" style="color:var(--blue)">Open original image in new tab ↗</a>
-            </div>
-        </div>
+    <div class="card xa-image" id="imagePreview">
+        <img src="{{ url_for('xa_image', unit_id=unit.id) }}" alt=""
+             onerror="this.parentNode.innerHTML='<span style=&quot;color:#e67e22;font-size:13px&quot;>Image unavailable. Choose &quot;Cannot determine&quot; / &quot;?&quot; for everything you cannot see.</span>'">
     </div>
 
-    <div>
-        <div class="card" id="annotationForm">
-            <h3 style="font-size:15px;margin-bottom:4px">{{ 'Couple annotation' if is_couple else 'Annotation' }}</h3>
-            {% if is_couple %}
-            <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">
-                Annotate each person independently. Person 1 is the person on the left of the image, Person 2 the one on the right.
-            </p>
-            {% endif %}
-
-            <div style="display:grid;grid-template-columns:{{ '1fr 1fr' if persons|length > 1 else '1fr' }};gap:12px;margin-bottom:12px">
-            {% for p in persons %}
-                <div class="xa-person" data-unit="{{ p.unit_id }}"
-                     style="border-radius:8px;padding:12px;border:1px solid #e0e0e0;background:#fafafa">
-                    {% if is_couple %}
-                    <div style="font-weight:700;font-size:13px;color:var(--blue);margin-bottom:10px">
-                        Person {{ p.person_idx }} ({{ 'left' if p.person_idx == 1 else 'right' }})
-                    </div>
-                    {% endif %}
-
-                    <div class="form-group" style="padding:8px;background:#fff;border-radius:6px;border:1px solid #eee">
-                        <label class="form-label">Perceived Gender <span class="form-hint">(3-step scale)</span></label>
-                        <div class="gender-selector">
-                            {% for g in range(3) %}
-                            <button type="button" class="gender-btn" data-value="{{ g }}" onclick="setGender({{ p.unit_id }}, {{ g }})">{{ gender_short[g] }}</button>
-                            {% endfor %}
-                        </div>
-                        <div class="gender-label">Select a gender</div>
-                        <button type="button" class="gender-na-btn" onclick="setGender({{ p.unit_id }}, -1)">Cannot determine</button>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Perceived Age</label>
-                        <select class="form-control xa-age" onchange="state[{{ p.unit_id }}].age = this.value">
-                            <option value="">— Select —</option>
-                            {% for a in age_labels %}
-                            <option {% if p.age == a %}selected{% endif %}>{{ a }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="form-group" style="padding:8px;background:#fff;border-radius:6px;border:1px solid #eee">
-                        <label class="form-label">Perceived Skin Tone <span class="form-hint">(Fitzpatrick: 1 lightest – 6 darkest)</span></label>
-                        <div class="mst-selector">
-                            {% for color in mst_colors %}
-                            <button type="button" class="mst-btn" data-value="{{ loop.index }}"
-                                style="background:{{ color }}" title="FST {{ loop.index }}{% if loop.first %} (lightest){% elif loop.last %} (darkest){% endif %}"
-                                onclick="setMST({{ p.unit_id }}, {{ loop.index }})"></button>
-                            {% endfor %}
-                            <button type="button" class="mst-na-btn" onclick="setMST({{ p.unit_id }}, 0)">?</button>
-                        </div>
-                        <div class="mst-label">Select a tone</div>
-                    </div>
-                </div>
-            {% endfor %}
+    <div class="card">
+        <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
+            <label class="form-label">Perceived Gender <span class="form-hint">(3-step scale)</span></label>
+            <div class="gender-selector" id="genderSelector">
+                {% for g in range(3) %}
+                <button type="button" class="gender-btn" data-value="{{ g }}" onclick="setGender({{ g }})">{{ gender_short[g] }}</button>
+                {% endfor %}
             </div>
-
-            <div class="form-group">
-                <label class="form-label">{{ 'Notes on the pair' if is_couple else 'Intersectional Notes' }}</label>
-                <textarea class="form-control" id="fNotes" rows="2"
-                    placeholder="{{ 'Describe the pair, representation, stereotypes...' if is_couple else 'Observations about representation, stereotypes...' }}">{{ notes }}</textarea>
-            </div>
-
-            <button class="btn btn-success" style="width:100%;padding:12px;font-size:14px" onclick="save()">
-                Save & Next
-            </button>
-            <div id="saveStatus" style="text-align:center;font-size:12px;margin-top:8px"></div>
+            <div class="gender-label" id="genderLabel">Select a gender</div>
+            <button type="button" class="gender-na-btn" id="genderNaBtn" onclick="setGender(-1)">Cannot determine</button>
         </div>
+
+        <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
+            <label class="form-label">Perceived Age</label>
+            <div class="age-selector" id="ageSelector">
+                {% for a in age_labels %}
+                <button type="button" class="age-btn" data-value="{{ a }}" onclick="setAge(this.dataset.value)">{{ a }}</button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group" style="padding:12px;background:#fafafa;border-radius:8px;border:1px solid #eee">
+            <label class="form-label">Perceived Skin Tone <span class="form-hint">(Fitzpatrick: 1 lightest – 6 darkest)</span></label>
+            <div class="mst-selector" id="mstSelector">
+                {% for color in mst_colors %}
+                <button type="button" class="mst-btn" data-value="{{ loop.index }}"
+                    style="background:{{ color }}" title="FST {{ loop.index }}{% if loop.first %} (lightest){% elif loop.last %} (darkest){% endif %}"
+                    onclick="setMST({{ loop.index }})"></button>
+                {% endfor %}
+                <button type="button" class="mst-na-btn" onclick="setMST(0)">?</button>
+            </div>
+            <div class="mst-label" id="mstLabel">Select a tone</div>
+        </div>
+
+        <button class="btn btn-success" style="width:100%;padding:12px;font-size:14px" onclick="save()">
+            Save & Next <span style="opacity:.7;font-size:12px">(Enter)</span>
+        </button>
+        <div id="saveStatus" style="text-align:center;font-size:12px;margin-top:8px"></div>
     </div>
 </div>
 {% endif %}
@@ -119,102 +91,63 @@
 {% if not finished %}
 <script>
 const GENDER_LABELS = {{ gender_labels | tojson }};
-const INDEX = {{ index }};
-const PERSONS = {{ persons | tojson }};
-const state = {};
-PERSONS.forEach(p => { state[p.unit_id] = {gender: null, skinTone: null, age: p.age || ''}; });
+const UNIT = {{ unit | tojson }};
+const state = {gender: null, age: null, skinTone: null};
 
-function box(unitId) { return document.querySelector(`.xa-person[data-unit="${unitId}"]`); }
-
-function setGender(unitId, val) {
-    state[unitId].gender = val;
-    const b = box(unitId);
-    b.querySelectorAll('.gender-btn').forEach(x => x.classList.toggle('active', parseInt(x.dataset.value) === val));
-    b.querySelector('.gender-na-btn').classList.toggle('active', val === -1);
-    b.querySelector('.gender-label').textContent =
+function setGender(val) {
+    state.gender = val;
+    document.querySelectorAll('#genderSelector .gender-btn').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.value) === val));
+    document.getElementById('genderNaBtn').classList.toggle('active', val === -1);
+    document.getElementById('genderLabel').textContent =
         val === null ? 'Select a gender' : val === -1 ? 'Cannot determine' : GENDER_LABELS[val];
 }
 
-function setMST(unitId, val) {
-    state[unitId].skinTone = val;
-    const b = box(unitId);
-    b.querySelectorAll('.mst-btn').forEach(x => x.classList.toggle('active', parseInt(x.dataset.value) === val));
-    b.querySelector('.mst-na-btn').classList.toggle('active', val === 0);
-    b.querySelector('.mst-label').textContent =
+function setAge(val) {
+    state.age = val;
+    document.querySelectorAll('#ageSelector .age-btn').forEach(b => b.classList.toggle('active', b.dataset.value === val));
+}
+
+function setMST(val) {
+    state.skinTone = val;
+    document.querySelectorAll('#mstSelector .mst-btn').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.value) === val));
+    document.querySelector('#mstSelector .mst-na-btn').classList.toggle('active', val === 0);
+    document.getElementById('mstLabel').textContent =
         val === null ? 'Select a tone' : val === 0 ? 'Cannot determine' : 'Selected: FST ' + val;
 }
 
-// Restore the re-annotator's own previous answers when revisiting an item.
-PERSONS.forEach(p => {
-    if (p.gender !== null) setGender(p.unit_id, p.gender);
-    if (p.skin_tone !== null) setMST(p.unit_id, p.skin_tone);
-});
+// Restore the re-annotator's own previous answer when revisiting an item.
+if (UNIT.gender !== null) setGender(UNIT.gender);
+if (UNIT.age) setAge(UNIT.age);
+if (UNIT.skin_tone !== null) setMST(UNIT.skin_tone);
 
-// Image: local copy if there is one, otherwise the source URL, then the server proxy.
-(function loadImage() {
-    const preview = document.getElementById('imagePreview');
-    const localSrc = {{ image_src | tojson }};
-    const url = {{ image_url | tojson }};
-    const show = (src, onerror) => {
-        const img = new Image();
-        img.style.maxWidth = '100%'; img.style.maxHeight = '520px'; img.style.objectFit = 'contain';
-        img.onload = () => { preview.innerHTML = ''; preview.appendChild(img); };
-        img.onerror = onerror;
-        img.src = src;
-    };
-    const unavailable = () => {
-        preview.innerHTML = '<span style="color:#e67e22;font-size:13px">Preview unavailable — use the link below to open the image.</span>';
-    };
-    const viaProxy = async () => {
-        try {
-            const resp = await fetch('/api/preview-image', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({image_url: url})
-            });
-            const r = await resp.json();
-            if (r.url) show(r.url, unavailable); else unavailable();
-        } catch (e) { unavailable(); }
-    };
-    if (localSrc) show(localSrc, () => show(url, viaProxy));
-    else show(url, viaProxy);
-})();
-
+let saving = false;
 async function save() {
     const status = document.getElementById('saveStatus');
-    const missing = PERSONS.some(p => {
-        const s = state[p.unit_id];
-        return s.gender === null || s.skinTone === null || !s.age;
-    });
-    if (missing) {
-        status.innerHTML = '<span style="color:#e74c3c">Please select gender, age and skin tone' +
-            (PERSONS.length > 1 ? ' for both people' : '') + ' (or "Cannot determine" / "?")</span>';
+    if (saving) return;
+    if (state.gender === null || state.age === null || state.skinTone === null) {
+        status.innerHTML = '<span style="color:#e74c3c">Please select gender, age and skin tone (or "Cannot determine" / "?")</span>';
         return;
     }
+    saving = true;
     status.innerHTML = '<span style="color:var(--blue)">Saving...</span>';
-    const body = {
-        persons: PERSONS.map(p => ({
-            unit_id: p.unit_id,
-            perceived_gender: state[p.unit_id].gender,
-            perceived_age: state[p.unit_id].age,
-            perceived_skin_tone: state[p.unit_id].skinTone,
-        })),
-        intersectional_notes: document.getElementById('fNotes').value,
-    };
     try {
         const resp = await fetch('/api/xa/save', {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({unit_id: UNIT.id, perceived_gender: state.gender,
+                                  perceived_age: state.age, perceived_skin_tone: state.skinTone}),
         });
         const r = await resp.json();
-        if (r.ok) {
-            // Go to the next pending item
-            window.location.href = '{{ url_for("annotate_xa") }}';
-        } else {
-            status.innerHTML = `<span style="color:#e74c3c">Error: ${r.error}</span>`;
-        }
+        if (r.ok) { window.location.href = '{{ url_for("annotate_xa") }}'; return; }
+        status.innerHTML = `<span style="color:#e74c3c">Error: ${r.error}</span>`;
     } catch (e) {
         status.innerHTML = `<span style="color:#e74c3c">Network error: ${e.message}</span>`;
     }
+    saving = false;
 }
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
 </script>
 {% endif %}
 {% endblock %}
