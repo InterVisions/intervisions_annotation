@@ -245,7 +245,7 @@ python scripts/xa_sample.py --db /data/intervisions/intervisions.db -o sample.cs
 ```
 
 Strata are prompt × FST group of the original label (1–2, 3–4, 5–6, 0). Defaults: all FST 5–6 (global cap 50,
-`--cap-56`), 65 FST 3–4 (`--n-34`) and 65 FST 1–2 (`--n-12`) spread evenly over prompts, FST 0 at the FST 1–2
+`--cap-56`), 75 FST 3–4 (`--n-34`) and 75 FST 1–2 (`--n-12`), i.e. 200 units, spread evenly over prompts, FST 0 at the FST 1–2
 rate of its prompt, at least 10 people per prompt (`--min-per-prompt`). Selection inside a stratum is random
 with a fixed `--seed` (default 2026) and balanced between original annotators; the same seed and data give the
 same file. `pi` = selected / available in the stratum and `weight` = 1/pi. Participants default to

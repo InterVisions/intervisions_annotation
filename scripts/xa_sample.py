@@ -141,8 +141,8 @@ def main():
                          "re-annotators (default: alexia,blanca)")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--cap-56", type=int, default=50, help="global cap for FST 5-6 (default 50)")
-    ap.add_argument("--n-34", type=int, default=65, help="total FST 3-4 units (default 65)")
-    ap.add_argument("--n-12", type=int, default=65, help="total FST 1-2 units (default 65)")
+    ap.add_argument("--n-34", type=int, default=75, help="total FST 3-4 units (default 75)")
+    ap.add_argument("--n-12", type=int, default=75, help="total FST 1-2 units (default 75)")
     ap.add_argument("--min-per-prompt", type=int, default=10)
     ap.add_argument("--intra", type=int, default=0,
                     help="units per annotator from their own images for intra-annotator agreement (default 0)")
