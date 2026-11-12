@@ -142,6 +142,35 @@ CREATE TABLE IF NOT EXISTS annotations (
     couple_interracial TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Cross-annotation study: one row per sampled person (unit), imported from sample.csv.
+-- annotation_id is the image_id; person_idx is 1 or 2 (2 only for couple images).
+CREATE TABLE IF NOT EXISTS xa_units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    annotation_id INTEGER NOT NULL REFERENCES annotations(id),
+    person_idx INTEGER NOT NULL CHECK(person_idx IN (1, 2)),
+    prompt TEXT NOT NULL,
+    original_annotator_id INTEGER NOT NULL REFERENCES users(id),
+    reannotator_id INTEGER NOT NULL REFERENCES users(id),
+    phase TEXT NOT NULL DEFAULT 'inter' CHECK(phase IN ('inter', 'intra')),
+    stratum TEXT NOT NULL,
+    pi REAL NOT NULL,
+    weight REAL NOT NULL,
+    position INTEGER NOT NULL,
+    UNIQUE(annotation_id, person_idx, reannotator_id, phase)
+);
+
+-- Blind re-annotations. Never written to the annotations table.
+CREATE TABLE IF NOT EXISTS xa_annotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    unit_id INTEGER NOT NULL UNIQUE REFERENCES xa_units(id),
+    perceived_gender INTEGER NOT NULL,
+    perceived_age TEXT NOT NULL,
+    perceived_skin_tone INTEGER NOT NULL,
+    intersectional_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 def migrate_db():
@@ -286,9 +315,11 @@ def annotator_dashboard():
     """, (uid,)).fetchall()
     open_count = sum(1 for t in tasks if t["status"] == "in_progress")
     total_images = sum(t["image_count"] for t in tasks)
+    xa = xa_items(db, uid)
+    xa_progress = {"total": len(xa), "done": sum(1 for it in xa if it["done"])} if xa else None
     return render_template("annotator_dashboard.html",
         tasks=tasks, open_count=open_count, total_images=total_images,
-        max_open=app.config["MAX_OPEN_TASKS"])
+        max_open=app.config["MAX_OPEN_TASKS"], xa_progress=xa_progress)
 
 @app.route("/annotator/new-task", methods=["GET", "POST"])
 @login_required
@@ -846,6 +877,8 @@ def api_delete_annotation(ann_id):
     ann = db.execute("SELECT image_path FROM annotations WHERE id = ?", (ann_id,)).fetchone()
     if not ann:
         return jsonify({"error": "Not found"}), 404
+    if db.execute("SELECT 1 FROM xa_units WHERE annotation_id = ?", (ann_id,)).fetchone():
+        return jsonify({"error": "This image is part of the cross-annotation sample"}), 409
     if ann["image_path"]:
         try:
             img_file = os.path.join(app.config["UPLOAD_FOLDER"], ann["image_path"])
@@ -1073,6 +1106,10 @@ def api_update_annotation(ann_id):
 @login_required
 def admin_viewer():
     db = get_db()
+    # Keep the cross-annotation blind: no access to existing labels while re-annotating.
+    if session.get("role") != "admin" and xa_has_pending(db, session["user_id"]):
+        flash("The dataset viewer is unavailable until you finish your cross-annotation items", "error")
+        return redirect(url_for("annotator_dashboard"))
 
     campaign_id  = request.args.get("campaign_id", "")
     term_id      = request.args.get("term_id", "")
@@ -1139,6 +1176,259 @@ def admin_viewer():
         f_campaign_id=campaign_id, f_term_id=term_id, f_annotator_id=annotator_id,
         f_concept_match=concept_match, f_suitability=suitability,
         tab="viewer")
+
+# ─── Cross-annotation (inter-annotator agreement study) ────────────────────
+
+XA_SAMPLE_COLUMNS = ["image_id", "person_idx", "prompt", "original_annotator",
+                     "reannotator", "stratum", "pi", "weight"]
+AGE_LABELS = ["Child (0-12)", "Adolescent (13-17)", "Young adult (18-30)",
+              "Middle-aged (31-60)", "Older adult (60+)", "Cannot determine"]
+
+def xa_has_pending(db, user_id):
+    return db.execute("""
+        SELECT 1 FROM xa_units u LEFT JOIN xa_annotations x ON x.unit_id = u.id
+        WHERE u.reannotator_id = ? AND x.id IS NULL LIMIT 1
+    """, (user_id,)).fetchone() is not None
+
+def xa_items(db, user_id):
+    """Re-annotation items of a user in display order. An item is one image (one or two units)."""
+    rows = db.execute("""
+        SELECT u.id, u.annotation_id, u.person_idx, u.phase, u.position, x.id AS done
+        FROM xa_units u LEFT JOIN xa_annotations x ON x.unit_id = u.id
+        WHERE u.reannotator_id = ?
+        ORDER BY u.position, u.annotation_id, u.person_idx
+    """, (user_id,)).fetchall()
+    items, index = [], {}
+    for r in rows:
+        key = (r["annotation_id"], r["phase"])
+        if key not in index:
+            index[key] = len(items)
+            items.append({"annotation_id": r["annotation_id"], "phase": r["phase"], "units": []})
+        items[index[key]]["units"].append(r)
+    for it in items:
+        it["done"] = all(u["done"] for u in it["units"])
+    return items
+
+@app.route("/annotator/xa")
+@login_required
+def annotate_xa():
+    db = get_db()
+    uid = session["user_id"]
+    items = xa_items(db, uid)
+    if not items:
+        flash("You have no cross-annotation items assigned", "error")
+        return redirect(url_for("annotator_dashboard"))
+    done_count = sum(1 for it in items if it["done"])
+    i = request.args.get("i", type=int)
+    if i is None:
+        i = next((k for k, it in enumerate(items) if not it["done"]), None)
+        if i is None:
+            return render_template("annotate_xa.html", finished=True,
+                                   total=len(items), done_count=done_count)
+    i = max(0, min(i, len(items) - 1))
+    item = items[i]
+
+    # Only image data is sent to the template: no labels, prompt, stratum or annotator.
+    ann = db.execute("SELECT image_url, image_path FROM annotations WHERE id = ?",
+                     (item["annotation_id"],)).fetchone()
+    persons = []
+    notes = ""
+    for u in item["units"]:
+        prev = db.execute("SELECT * FROM xa_annotations WHERE unit_id = ?", (u["id"],)).fetchone()
+        persons.append({
+            "unit_id": u["id"], "person_idx": u["person_idx"],
+            "gender": prev["perceived_gender"] if prev else None,
+            "age": prev["perceived_age"] if prev else "",
+            "skin_tone": prev["perceived_skin_tone"] if prev else None,
+        })
+        if prev and prev["intersectional_notes"]:
+            notes = prev["intersectional_notes"]
+    return render_template("annotate_xa.html", finished=False,
+        index=i, total=len(items), done_count=done_count,
+        image_src=url_for("serve_image", filename=ann["image_path"]) if ann["image_path"] else None,
+        image_url=ann["image_url"], persons=persons, notes=notes,
+        is_couple=len(persons) > 1 or persons[0]["person_idx"] == 2,
+        age_labels=AGE_LABELS)
+
+@app.route("/api/xa/save", methods=["POST"])
+@login_required
+def api_xa_save():
+    db = get_db()
+    uid = session["user_id"]
+    data = request.get_json() or {}
+    persons = data.get("persons") or []
+    notes = (data.get("intersectional_notes") or "").strip() or None
+    if not persons:
+        return jsonify({"error": "Nothing to save"}), 400
+    rows = []
+    for p in persons:
+        unit = db.execute("SELECT id FROM xa_units WHERE id = ? AND reannotator_id = ?",
+                          (p.get("unit_id"), uid)).fetchone()
+        if not unit:
+            return jsonify({"error": "Unit not found"}), 404
+        g, st, age = p.get("perceived_gender"), p.get("perceived_skin_tone"), p.get("perceived_age")
+        if g not in (-1, 0, 1, 2) or st not in (0, 1, 2, 3, 4, 5, 6) or age not in AGE_LABELS:
+            return jsonify({"error": "Gender, age and skin tone are required for every person"}), 400
+        rows.append((unit["id"], g, age, st, notes))
+    for unit_id, g, age, st, n in rows:
+        db.execute("""
+            INSERT INTO xa_annotations (unit_id, perceived_gender, perceived_age, perceived_skin_tone, intersectional_notes)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(unit_id) DO UPDATE SET
+                perceived_gender = excluded.perceived_gender, perceived_age = excluded.perceived_age,
+                perceived_skin_tone = excluded.perceived_skin_tone,
+                intersectional_notes = excluded.intersectional_notes, updated_at = CURRENT_TIMESTAMP
+        """, (unit_id, g, age, st, n))
+    db.commit()
+    return jsonify({"ok": True})
+
+@app.route("/admin/xa")
+@admin_required
+def admin_xa():
+    db = get_db()
+    progress = db.execute("""
+        SELECT r.display_name, r.username, u.phase,
+               COUNT(*) AS units, COUNT(x.id) AS done
+        FROM xa_units u JOIN users r ON u.reannotator_id = r.id
+        LEFT JOIN xa_annotations x ON x.unit_id = u.id
+        GROUP BY r.id, u.phase ORDER BY r.display_name, u.phase
+    """).fetchall()
+    totals = db.execute("""
+        SELECT COUNT(*) AS units, (SELECT COUNT(*) FROM xa_annotations) AS done FROM xa_units
+    """).fetchone()
+    return render_template("admin_xa.html", progress=progress, totals=totals, tab="xa")
+
+@app.route("/admin/xa/import", methods=["POST"])
+@admin_required
+def admin_xa_import():
+    import csv
+    import io
+    import random
+    f = request.files.get("sample_file")
+    if not f:
+        flash("No file uploaded", "error")
+        return redirect(url_for("admin_xa"))
+    db = get_db()
+    try:
+        reader = csv.DictReader(io.StringIO(f.read().decode("utf-8-sig")))
+        missing = [c for c in XA_SAMPLE_COLUMNS if c not in (reader.fieldnames or [])]
+        if missing:
+            raise ValueError(f"missing columns: {', '.join(missing)}")
+        users = {r["username"]: r["id"] for r in db.execute("SELECT id, username FROM users")}
+        units, errors = [], []
+        for line, r in enumerate(reader, start=2):
+            phase = (r.get("phase") or "inter").strip() or "inter"
+            try:
+                ann_id, pidx = int(r["image_id"]), int(r["person_idx"])
+                pi, weight = float(r["pi"]), float(r["weight"])
+            except ValueError:
+                errors.append(f"line {line}: non-numeric image_id/person_idx/pi/weight"); continue
+            ann = db.execute("""
+                SELECT u.username, c.annotation_type FROM annotations a
+                JOIN tasks t ON a.task_id = t.id JOIN users u ON t.annotator_id = u.id
+                JOIN terms te ON t.term_id = te.id JOIN campaigns c ON te.campaign_id = c.id
+                WHERE a.id = ?
+            """, (ann_id,)).fetchone()
+            orig, rean = r["original_annotator"].strip(), r["reannotator"].strip()
+            if not ann:
+                errors.append(f"line {line}: image_id {ann_id} not found")
+            elif ann["username"] != orig:
+                errors.append(f"line {line}: image_id {ann_id} was annotated by {ann['username']}, not {orig}")
+            elif pidx not in (1, 2) or (pidx == 2 and ann["annotation_type"] != "couple"):
+                errors.append(f"line {line}: invalid person_idx {pidx} for image_id {ann_id}")
+            elif rean not in users:
+                errors.append(f"line {line}: unknown reannotator {rean}")
+            elif phase not in ("inter", "intra"):
+                errors.append(f"line {line}: unknown phase {phase}")
+            elif phase == "inter" and rean == orig:
+                errors.append(f"line {line}: image_id {ann_id} assigned to its original annotator")
+            elif phase == "intra" and rean != orig:
+                errors.append(f"line {line}: intra unit must be assigned to its original annotator")
+            elif not (0 < pi <= 1):
+                errors.append(f"line {line}: pi must be in (0, 1]")
+            else:
+                units.append((ann_id, pidx, r["prompt"], users[orig], users[rean], phase,
+                              r["stratum"], pi, weight))
+        if errors:
+            raise ValueError("; ".join(errors[:10]) + (f" (+{len(errors) - 10} more)" if len(errors) > 10 else ""))
+        if not units:
+            raise ValueError("the file has no units")
+
+        # Shuffle display order per reannotator across prompts and strata.
+        # Both people of a couple image share one position (they are shown together).
+        rng = random.Random(secrets.randbits(64))
+        by_rean = {}
+        for u in units:
+            by_rean.setdefault(u[4], {}).setdefault((u[0], u[5]), []).append(u)
+        rows = []
+        for rean_id, items in by_rean.items():
+            keys = sorted(items)
+            rng.shuffle(keys)
+            start = db.execute("SELECT COALESCE(MAX(position), -1) + 1 AS p FROM xa_units WHERE reannotator_id = ?",
+                               (rean_id,)).fetchone()["p"]
+            for pos, key in enumerate(keys, start=start):
+                rows.extend(u + (pos,) for u in items[key])
+        db.executemany("""
+            INSERT INTO xa_units (annotation_id, person_idx, prompt, original_annotator_id, reannotator_id,
+                                  phase, stratum, pi, weight, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, rows)
+        db.commit()
+        flash(f"Imported {len(rows)} units", "success")
+    except sqlite3.IntegrityError:
+        db.rollback()
+        flash("Import failed: some units are already imported (same image, person, reannotator and phase)", "error")
+    except (ValueError, UnicodeDecodeError) as e:
+        db.rollback()
+        flash(f"Import failed: {e}", "error")
+    return redirect(url_for("admin_xa"))
+
+@app.route("/admin/xa/reset", methods=["POST"])
+@admin_required
+def admin_xa_reset():
+    db = get_db()
+    if db.execute("SELECT COUNT(*) AS c FROM xa_annotations").fetchone()["c"]:
+        flash("Cannot reset: re-annotations already exist", "error")
+    else:
+        db.execute("DELETE FROM xa_units")
+        db.commit()
+        flash("Cross-annotation sample removed", "success")
+    return redirect(url_for("admin_xa"))
+
+@app.route("/api/admin/xa/export")
+@admin_required
+def api_xa_export():
+    """One row per sampled unit: sample info, original labels and the blind re-annotation (if any)."""
+    import csv
+    import io
+    from flask import Response
+    db = get_db()
+    rows = db.execute("""
+        SELECT u.annotation_id AS image_id, u.person_idx, u.prompt, u.phase, u.stratum, u.pi, u.weight,
+               o.username AS original_annotator, r.username AS reannotator,
+               CASE u.person_idx WHEN 1 THEN a.perceived_gender ELSE a.p2_perceived_gender END AS orig_gender,
+               CASE u.person_idx WHEN 1 THEN a.perceived_age ELSE a.p2_perceived_age END AS orig_age,
+               CASE u.person_idx WHEN 1 THEN a.perceived_skin_tone ELSE a.p2_perceived_skin_tone END AS orig_skin_tone,
+               x.perceived_gender AS new_gender, x.perceived_age AS new_age,
+               x.perceived_skin_tone AS new_skin_tone, x.intersectional_notes AS new_notes,
+               x.created_at AS new_created_at, x.updated_at AS new_updated_at
+        FROM xa_units u
+        JOIN annotations a ON a.id = u.annotation_id
+        JOIN users o ON o.id = u.original_annotator_id
+        JOIN users r ON r.id = u.reannotator_id
+        LEFT JOIN xa_annotations x ON x.unit_id = u.id
+        ORDER BY u.annotation_id, u.person_idx, u.phase
+    """).fetchall()
+    cols = ["image_id", "person_idx", "prompt", "original_annotator", "reannotator", "stratum",
+            "pi", "weight", "phase", "orig_gender", "orig_age", "orig_skin_tone",
+            "new_gender", "new_age", "new_skin_tone", "new_notes", "new_created_at", "new_updated_at"]
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(cols)
+    for r in rows:
+        w.writerow([r[c] for c in cols])
+    return Response(out.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=intervisions_xa_annotations.csv"})
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 

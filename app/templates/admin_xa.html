@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Admin - Cross-annotation{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:20px">Cross-annotation</h2>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Progress</h3>
+        {% if totals.units %}
+        <a href="{{ url_for('api_xa_export') }}" class="btn btn-primary btn-sm">Export re-annotations (CSV)</a>
+        {% endif %}
+    </div>
+    {% if progress %}
+    <table class="ann-table">
+        <thead><tr><th>Re-annotator</th><th>Phase</th><th>Units done</th><th>Units assigned</th></tr></thead>
+        <tbody>
+        {% for p in progress %}
+        <tr>
+            <td>{{ p.display_name }} <span style="color:var(--gray-500)">({{ p.username }})</span></td>
+            <td>{{ p.phase }}</td>
+            <td>{{ p.done }}</td>
+            <td>{{ p.units }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--gray-500);margin-top:8px">
+        A unit is one person. Couple images contain two units and are shown to the re-annotator as one item.
+        The export has one row per unit with the sample information, the original labels and the new labels.
+    </p>
+    {% else %}
+    <p style="font-size:13px;color:var(--gray-500)">No sample imported yet.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Import sample</h3>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
+        Upload the <code>sample.csv</code> produced by <code>scripts/xa_sample.py</code>
+        (columns: image_id, person_idx, prompt, original_annotator, reannotator, stratum, pi, weight, and optionally phase).
+        The whole file is rejected if any row is invalid, e.g. a unit assigned to its original annotator outside the intra phase.
+        Display order is shuffled per re-annotator across prompts and strata. You can import more files later (e.g. the intra phase).
+    </p>
+    <form method="POST" action="{{ url_for('admin_xa_import') }}" enctype="multipart/form-data"
+          style="display:flex;gap:10px;align-items:center">
+        <input type="file" name="sample_file" accept=".csv" class="form-control" style="max-width:360px">
+        <button type="submit" class="btn btn-primary">Import</button>
+    </form>
+</div>
+
+{% if totals.units and not totals.done %}
+<div class="card">
+    <h3 class="card-title" style="margin-bottom:12px">Reset</h3>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
+        Remove the imported sample ({{ totals.units }} units). Only possible while no re-annotation has been saved.
+    </p>
+    <form method="POST" action="{{ url_for('admin_xa_reset') }}"
+          onsubmit="return confirm('Remove the imported cross-annotation sample?')">
+        <button type="submit" class="btn btn-secondary">Remove sample</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
