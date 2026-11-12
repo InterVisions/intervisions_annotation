@@ -193,8 +193,8 @@ intervisions_annotation/
 - **annotations**: id, task_id, image_url, image_path, image metadata, all annotation fields (`p2_*` fields for the second person in couple annotations)
 - **settings**: key-value store for platform configuration
 - **user_logins**: login history (user_id, timestamp)
-- **xa_units**: cross-annotation sample, one row per person (annotation_id = image, person_idx, prompt, original annotator, re-annotator, phase, stratum, pi, weight, display position)
-- **xa_annotations**: blind re-annotations, one row per unit (gender, age, skin tone, notes). The `annotations` table is never modified by the study.
+- **xa_units**: cross-annotation sample, one row per person (annotation_id = image, person_idx, prompt, original annotator, re-annotator, phase inter/intra/test, stratum, pi, weight, display position)
+- **xa_annotations**: blind re-annotations, one row per unit (gender, age, skin tone). The `annotations` table is never modified by the study.
 
 The database is pre-seeded with 8 campaigns (C1–C8) from the InterVisions use-case scenario document; terms are added from the admin Campaigns page.
 
@@ -233,31 +233,33 @@ with `7 − value` for values 1–6.
 
 ## Cross-annotation study (inter-annotator agreement)
 
-Each annotator blindly re-annotates a stratified sample of the people annotated by the other.
-The unit is one person; a couple image gives two units (person 1 and person 2) and is shown as one item.
+Alexia and Blanca each blindly re-annotate a stratified sample of the people annotated by the other.
+The unit is one person. Couple images are not part of the study.
 
 **1. Sample** (stdlib only; reads the database or a CSV export):
 
 ```bash
-python scripts/xa_sample.py --db /data/intervisions/intervisions.db --annotators alexia,blanca -o sample.csv
+python scripts/xa_sample.py --db /data/intervisions/intervisions.db -o sample.csv
+# optional: --intra 30 (own-image units per annotator), --test-user lluis (20 test units to try the interface)
 ```
 
 Strata are prompt × FST group of the original label (1–2, 3–4, 5–6, 0). Defaults: all FST 5–6 (global cap 50,
 `--cap-56`), 65 FST 3–4 (`--n-34`) and 65 FST 1–2 (`--n-12`) spread evenly over prompts, FST 0 at the FST 1–2
 rate of its prompt, at least 10 people per prompt (`--min-per-prompt`). Selection inside a stratum is random
 with a fixed `--seed` (default 2026) and balanced between original annotators; the same seed and data give the
-same file. When one person of a couple image is selected, the other is added too. `pi` = selected / available
-in the stratum (after adding couple partners) and `weight` = 1/pi. Each unit goes to an annotator other than
-the original one. `--intra N` adds N units per annotator from their own images (phase `intra`).
-The script prints a per-stratum summary (selected/available).
+same file. `pi` = selected / available in the stratum and `weight` = 1/pi. Participants default to
+`--annotators alexia,blanca`; each unit goes to the other one. `--intra N` adds N units per annotator from
+their own images (phase `intra`). `--test-user U` adds units for U with phase `test`: they use a separate random
+stream (the study sample is identical with or without them), are ignored by the analysis, and can be removed from
+the admin page at any time. The script prints a per-stratum summary (selected/available).
 
 **2. Re-annotate.** Admin → *Cross-annotation* → import `sample.csv`. The import is all-or-nothing and rejects any
 unit assigned to its original annotator (outside the intra phase). Annotators get a *Cross-annotation* card on
-their dashboard. The view shows only the image: no prompt, original labels, stratum, original annotator or
-balance counter, and the order is shuffled across prompts and strata. Gender, age and skin tone are required
-for every person (the "Cannot determine" options are available); free-text notes are optional, and in couple
-images they describe the pair. In couple images Person 1 is the person on the left. While an annotator has
-pending items the dataset viewer is closed to them, and images in the sample cannot be deleted.
+their dashboard. The view shows only the image and the three attributes (gender, age, skin tone; all required,
+with the "Cannot determine" options available; Enter saves). No prompt, URL, licence, notes, original labels,
+stratum, original annotator or balance counter; the image is served through the app so its URL and file name are
+not exposed. The order is shuffled across prompts and strata. While an annotator has pending items the dataset
+viewer is closed to them, and images in the sample cannot be deleted.
 
 **3. Analyse.** Admin → *Cross-annotation* → *Export re-annotations* (one row per unit with sample info,
 original labels and new labels), then:
