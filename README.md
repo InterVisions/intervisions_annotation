@@ -171,7 +171,13 @@ intervisions_annotation/
 │       ├── admin_campaigns.html
 │       ├── admin_settings.html
 │       ├── admin_users.html
-│       └── admin_viewer.html
+│       ├── admin_viewer.html
+│       ├── admin_xa.html        # cross-annotation: import sample, progress, export
+│       └── annotate_xa.html     # blind re-annotation view
+├── scripts/
+│   ├── xa_sample.py             # stratified sample for the cross-annotation study
+│   ├── xa_analysis.py           # agreement metrics, CIs, confusion matrices
+│   └── requirements-analysis.txt
 ├── intervisions.service     # systemd service file for deployment
 ├── requirements.txt
 ├── eu-funded.png
@@ -187,6 +193,8 @@ intervisions_annotation/
 - **annotations**: id, task_id, image_url, image_path, image metadata, all annotation fields (`p2_*` fields for the second person in couple annotations)
 - **settings**: key-value store for platform configuration
 - **user_logins**: login history (user_id, timestamp)
+- **xa_units**: cross-annotation sample, one row per person (annotation_id = image, person_idx, prompt, original annotator, re-annotator, phase, stratum, pi, weight, display position)
+- **xa_annotations**: blind re-annotations, one row per unit (gender, age, skin tone, notes). The `annotations` table is never modified by the study.
 
 The database is pre-seeded with 8 campaigns (C1–C8) from the InterVisions use-case scenario document; terms are added from the admin Campaigns page.
 
@@ -222,6 +230,50 @@ On first start after the fix, existing annotations are recoded automatically (`v
 values are untouched). The migration runs once and records its date in the `settings` table under
 `skin_tone_fitzpatrick_order`. **CSV exports made before that date use the old, reversed coding** — convert them
 with `7 − value` for values 1–6.
+
+## Cross-annotation study (inter-annotator agreement)
+
+Each annotator blindly re-annotates a stratified sample of the people annotated by the other.
+The unit is one person; a couple image gives two units (person 1 and person 2) and is shown as one item.
+
+**1. Sample** (stdlib only; reads the database or a CSV export):
+
+```bash
+python scripts/xa_sample.py --db /data/intervisions/intervisions.db --annotators alexia,blanca -o sample.csv
+```
+
+Strata are prompt × FST group of the original label (1–2, 3–4, 5–6, 0). Defaults: all FST 5–6 (global cap 50,
+`--cap-56`), 65 FST 3–4 (`--n-34`) and 65 FST 1–2 (`--n-12`) spread evenly over prompts, FST 0 at the FST 1–2
+rate of its prompt, at least 10 people per prompt (`--min-per-prompt`). Selection inside a stratum is random
+with a fixed `--seed` (default 2026) and balanced between original annotators; the same seed and data give the
+same file. When one person of a couple image is selected, the other is added too. `pi` = selected / available
+in the stratum (after adding couple partners) and `weight` = 1/pi. Each unit goes to an annotator other than
+the original one. `--intra N` adds N units per annotator from their own images (phase `intra`).
+The script prints a per-stratum summary (selected/available).
+
+**2. Re-annotate.** Admin → *Cross-annotation* → import `sample.csv`. The import is all-or-nothing and rejects any
+unit assigned to its original annotator (outside the intra phase). Annotators get a *Cross-annotation* card on
+their dashboard. The view shows only the image: no prompt, original labels, stratum, original annotator or
+balance counter, and the order is shuffled across prompts and strata. Gender, age and skin tone are required
+for every person (the "Cannot determine" options are available); free-text notes are optional, and in couple
+images they describe the pair. In couple images Person 1 is the person on the left. While an annotator has
+pending items the dataset viewer is closed to them, and images in the sample cannot be deleted.
+
+**3. Analyse.** Admin → *Cross-annotation* → *Export re-annotations* (one row per unit with sample info,
+original labels and new labels), then:
+
+```bash
+pip install -r scripts/requirements-analysis.txt
+python scripts/xa_analysis.py intervisions_xa_annotations.csv -o xa_report
+```
+
+Output in `xa_report/`: `report.md` (summary tables), `metrics.csv` (every metric with 95% CI and n),
+`confusion/*.csv` and `confusion_*.png`, and `cd_usage.csv` ("cannot determine" use per annotator, as original
+annotator and as re-annotator). Metrics: Cohen's kappa for gender; quadratic weighted kappa and ordinal
+Krippendorff's alpha for FST and age; percent agreement for all three. Scopes: overall weighted by `w`,
+overall unweighted, per FST group and per stratum (unweighted), and per annotator for intra units.
+"Cannot determine" is analysed both as a category (at maximum distance from every other value in the ordinal
+metrics) and excluded. CIs: stratified bootstrap within strata, 2,000 iterations (`--iterations`, `--seed`).
 
 ## Default credentials
 
