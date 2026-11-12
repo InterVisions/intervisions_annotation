@@ -1320,7 +1320,7 @@ def admin_xa_import():
             except ValueError:
                 errors.append(f"line {line}: non-numeric image_id/person_idx/pi/weight"); continue
             ann = db.execute("""
-                SELECT u.username, c.annotation_type FROM annotations a
+                SELECT u.username, c.annotation_type, a.num_people FROM annotations a
                 JOIN tasks t ON a.task_id = t.id JOIN users u ON t.annotator_id = u.id
                 JOIN terms te ON t.term_id = te.id JOIN campaigns c ON te.campaign_id = c.id
                 WHERE a.id = ?
@@ -1332,6 +1332,8 @@ def admin_xa_import():
                 errors.append(f"line {line}: image_id {ann_id} was annotated by {ann['username']}, not {orig}")
             elif ann["annotation_type"] == "couple":
                 errors.append(f"line {line}: image_id {ann_id} is a couple image (not part of the study)")
+            elif str(ann["num_people"]) != "1":
+                errors.append(f"line {line}: image_id {ann_id} does not show exactly one person")
             elif pidx != 1:
                 errors.append(f"line {line}: invalid person_idx {pidx}")
             elif rean not in users:

@@ -26,7 +26,7 @@
         </tbody>
     </table>
     <p style="font-size:12px;color:var(--gray-500);margin-top:8px">
-        A unit is one person (couple images are not part of the study). Phase <em>test</em> units are only for
+        A unit is one person; only one-person images are in the study. Phase <em>test</em> units are only for
         trying the interface; the analysis ignores them.
         The export has one row per unit with the sample information, the original labels and the new labels.
     </p>
@@ -40,7 +40,7 @@
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
         Upload the <code>sample.csv</code> produced by <code>scripts/xa_sample.py</code>
         (columns: image_id, person_idx, prompt, original_annotator, reannotator, stratum, pi, weight, and optionally phase).
-        The whole file is rejected if any row is invalid, e.g. a couple image or a unit assigned to its original annotator outside the intra phase.
+        The whole file is rejected if any row is invalid, e.g. an image that does not show exactly one person, or a unit assigned to its original annotator outside the intra phase.
         Display order is shuffled per re-annotator across prompts and strata. You can import more files later (e.g. the intra phase).
     </p>
     <form method="POST" action="{{ url_for('admin_xa_import') }}" enctype="multipart/form-data"

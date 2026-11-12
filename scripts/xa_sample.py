@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Stratified sample for the cross-annotation (inter-annotator agreement) study.
 
-Unit of analysis: one annotated person. Couple images are left out of the study, so every unit
-is the single annotated person of an image (person_idx 1).
+Unit of analysis: one annotated person. Only images with exactly one person (num_people = 1) are
+in the study: in couple images and in multi-person images of single campaigns a blind re-annotator
+cannot know which person the original label refers to. Every unit has person_idx 1.
 Strata: prompt x FST group of the original label (1-2, 3-4, 5-6, 0 = cannot determine).
 
 Default sizes (all configurable):
@@ -85,8 +86,8 @@ def build_units(rows, annotators):
         if r["annotation_type"] == "couple":
             skipped["couple image (not in study)"] += 1
             continue
-        if str(r["num_people"]) == "0":
-            skipped["no people"] += 1
+        if str(r["num_people"]) != "1":
+            skipped[f"num_people = {r['num_people'] or 'empty'} (only one-person images)"] += 1
             continue
         g, st = to_int(r["perceived_gender"]), to_int(r["perceived_skin_tone"])
         if g is None or st is None or fst_group(st) is None:

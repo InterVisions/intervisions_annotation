@@ -234,7 +234,8 @@ with `7 − value` for values 1–6.
 ## Cross-annotation study (inter-annotator agreement)
 
 Alexia and Blanca each blindly re-annotate a stratified sample of the people annotated by the other.
-The unit is one person. Couple images are not part of the study.
+The unit is one person. Only images with exactly one person are in the study (couple images and multi-person
+images are left out, because a blind re-annotator cannot know which person the original label refers to).
 
 **1. Sample** (stdlib only; reads the database or a CSV export):
 
