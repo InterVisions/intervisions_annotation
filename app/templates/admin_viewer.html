@@ -571,6 +571,7 @@ const genderColor = g => (g >= 0 && g <= 2) ? GENDER_COLORS[g] : GENDER_NA_COLOR
 const genderLabel = (g, short) => (g >= 0 && g <= 2) ? (short ? GENDER_SHORT : GENDER_LABELS)[g] : (short ? 'N/D' : 'Cannot determine');
 const CURRENT_USER_ID = {{ current_user.id if current_user else 'null' }};
 const IS_ADMIN = {{ 'true' if session.get('role') == 'admin' else 'false' }};
+const FROZEN = {{ 'true' if dataset_frozen else 'false' }};
 
 let currentAnnotationId = null;
 
@@ -624,7 +625,7 @@ function openModal(id) {
   document.getElementById('modalTitle').textContent = '”' + d.term + '”  ·  #' + d.id;
 
   // Show edit button if user owns this annotation or is admin
-  const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
+  const canEdit = IS_ADMIN || (!FROZEN && CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
   document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
   // Show delete button for admins only
   document.getElementById('modalDeleteBtn').style.display = IS_ADMIN ? '' : 'none';
@@ -677,7 +678,7 @@ function cancelDelete() {
   if (currentAnnotationId) {
     const d = ANNOTATIONS[currentAnnotationId];
     document.getElementById('modalDeleteBtn').style.display = IS_ADMIN ? '' : 'none';
-    const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d && d.annotator_user_id === CURRENT_USER_ID);
+    const canEdit = IS_ADMIN || (!FROZEN && CURRENT_USER_ID !== null && d && d.annotator_user_id === CURRENT_USER_ID);
     document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
   }
 }
@@ -757,7 +758,7 @@ function exitEditMode() {
   document.getElementById('editPanel').classList.remove('active');
   if (currentAnnotationId && ANNOTATIONS[currentAnnotationId]) {
     const d = ANNOTATIONS[currentAnnotationId];
-    const canEdit = IS_ADMIN || (CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
+    const canEdit = IS_ADMIN || (!FROZEN && CURRENT_USER_ID !== null && d.annotator_user_id === CURRENT_USER_ID);
     document.getElementById('modalEditBtn').style.display = canEdit ? '' : 'none';
     document.getElementById('modalDeleteBtn').style.display = IS_ADMIN ? '' : 'none';
   }

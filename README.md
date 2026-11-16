@@ -262,6 +262,11 @@ stratum, original annotator or balance counter; the image is served through the 
 not exposed. The order is shuffled across prompts and strata. While an annotator has pending items the dataset
 viewer is closed to them, and images in the sample cannot be deleted.
 
+**Freezing the dataset.** While the study runs, dataset annotation is frozen (Admin → Settings → *Dataset
+annotation*; on by default, stored as `dataset_frozen` in `settings`). Annotators then cannot start tasks, open the
+annotation page, add images or edit their annotations, so the original labels cannot change under the study.
+Admins can still edit and delete annotations. Reopen it from the same card when the study is over.
+
 **3. Analyse.** Admin → *Cross-annotation* → *Export re-annotations* (one row per unit with sample info,
 original labels and new labels), then:
 

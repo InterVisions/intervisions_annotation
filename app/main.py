@@ -59,6 +59,9 @@ def init_db():
     # Seed default settings
     db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
                ("default_target_images", "40"))
+    # Dataset annotation is frozen during the cross-annotation study (toggle in Admin > Settings)
+    db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+               ("dataset_frozen", "1"))
     db.commit()
     db.close()
 
@@ -256,6 +259,13 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def dataset_frozen(db=None):
+    """True while dataset annotation is frozen: annotators cannot add or edit annotations."""
+    row = (db or get_db()).execute("SELECT value FROM settings WHERE key = 'dataset_frozen'").fetchone()
+    return bool(row and row["value"] == "1")
+
+FROZEN_MSG = "Dataset annotation is frozen. Only the cross-annotation task is open."
+
 def get_current_user():
     if "user_id" in session:
         db = get_db()
@@ -326,6 +336,9 @@ def annotator_dashboard():
 def new_task():
     db = get_db()
     uid = session["user_id"]
+    if dataset_frozen(db):
+        flash(FROZEN_MSG, "error")
+        return redirect(url_for("annotator_dashboard"))
     open_count = db.execute(
         "SELECT COUNT(*) as c FROM tasks WHERE annotator_id = ? AND status = 'in_progress'",
         (uid,)
@@ -371,6 +384,9 @@ def new_task():
 @login_required
 def annotate(task_id):
     db = get_db()
+    if dataset_frozen(db):
+        flash(FROZEN_MSG, "error")
+        return redirect(url_for("annotator_dashboard"))
     task = db.execute("""
         SELECT t.*, te.term, te.campaign_id, te.target_images, te.dimensions as term_dims,
                c.name as campaign_name, c.dimension as campaign_dim, c.annotation_type
@@ -400,6 +416,8 @@ def annotate(task_id):
 @login_required
 def api_save_annotation(task_id):
     db = get_db()
+    if dataset_frozen(db):
+        return jsonify({"error": FROZEN_MSG}), 403
     task = db.execute(
         "SELECT * FROM tasks WHERE id = ? AND annotator_id = ?",
         (task_id, session["user_id"])
@@ -809,9 +827,20 @@ def admin_settings():
     total_terms = db.execute("SELECT COUNT(*) as c FROM terms").fetchone()["c"]
     total_campaigns = db.execute("SELECT COUNT(*) as c FROM campaigns").fetchone()["c"]
 
-    return render_template("admin_settings.html",
+    return render_template("admin_settings.html", frozen=dataset_frozen(db),
         default_target=default_target, total_terms=total_terms,
         total_campaigns=total_campaigns, tab="settings")
+
+@app.route("/admin/settings/freeze", methods=["POST"])
+@admin_required
+def admin_set_freeze():
+    db = get_db()
+    frozen = request.form.get("frozen") == "1"
+    db.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('dataset_frozen', ?)",
+               ("1" if frozen else "0",))
+    db.commit()
+    flash("Dataset annotation frozen" if frozen else "Dataset annotation reopened", "success")
+    return redirect(url_for("admin_settings"))
 
 @app.route("/api/admin/backup-config")
 @admin_required
@@ -957,6 +986,8 @@ def api_update_annotation(ann_id):
         return jsonify({"error": "Not found"}), 404
     if session.get("role") != "admin" and ann["annotator_id"] != session["user_id"]:
         return jsonify({"error": "Forbidden"}), 403
+    if session.get("role") != "admin" and dataset_frozen(db):
+        return jsonify({"error": FROZEN_MSG}), 403
 
     data = request.get_json()
 
@@ -1591,6 +1622,7 @@ def compute_stats_from_annotations(annotations):
 def inject_globals():
     return {
         "current_user": get_current_user(),
+        "dataset_frozen": dataset_frozen() if "user_id" in session else False,
         "gender_labels": GENDER_LABELS,
         # Fitzpatrick types I–VI: index 0 = type I (lightest), index 5 = type VI (darkest)
         "mst_colors": [

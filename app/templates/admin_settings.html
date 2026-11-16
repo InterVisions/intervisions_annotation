@@ -38,6 +38,25 @@
 </div>
 
 <div class="card">
+    <h3 class="card-title" style="margin-bottom:8px">Dataset annotation</h3>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
+        {% if frozen %}
+        <strong>Frozen.</strong> Annotators cannot start tasks, add images or edit their annotations;
+        only the cross-annotation task is open to them. Admins can still edit and delete annotations.
+        {% else %}
+        <strong>Open.</strong> Annotators can start tasks, add images and edit their own annotations.
+        {% endif %}
+    </p>
+    <form method="POST" action="{{ url_for('admin_set_freeze') }}">
+        <input type="hidden" name="frozen" value="{{ '0' if frozen else '1' }}">
+        <button type="submit" class="btn {{ 'btn-secondary' if frozen else 'btn-primary' }}"
+                onclick="return confirm('{{ 'Reopen dataset annotation for annotators?' if frozen else 'Freeze dataset annotation?' }}')">
+            {{ 'Reopen dataset annotation' if frozen else 'Freeze dataset annotation' }}
+        </button>
+    </form>
+</div>
+
+<div class="card">
     <h3 class="card-title" style="margin-bottom:12px">Platform Overview</h3>
     <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:16px">
         <div style="padding:16px;background:var(--gray-100);border-radius:8px;text-align:center">

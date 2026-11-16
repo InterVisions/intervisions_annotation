@@ -21,6 +21,12 @@
     </div>
 </div>
 
+{% if dataset_frozen %}
+<div class="flash flash-info" style="background:#e3f2fd;color:#1565c0;border:1px solid #bbdefb">
+    Dataset annotation is frozen: no new images or edits.{% if xa_progress %} Please work on the cross-annotation task below.{% endif %}
+</div>
+{% endif %}
+
 {% if xa_progress %}
 <div class="card">
     <div class="card-header">
@@ -48,7 +54,9 @@
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">My Open Tasks</h3>
-        {% if open_count < max_open %}
+        {% if dataset_frozen %}
+        <button class="btn btn-primary" disabled>+ New Task (frozen)</button>
+        {% elif open_count < max_open %}
         <a href="{{ url_for('new_task') }}" class="btn btn-primary">+ New Task</a>
         {% else %}
         <button class="btn btn-primary" disabled>+ New Task (max reached)</button>
@@ -72,8 +80,10 @@
                     <div class="progress-bar-fill" style="width:{{ (task.image_count / task.target_images * 100) | int }}%"></div>
                 </div>
             </div>
+            {% if not dataset_frozen %}
             <a href="{{ url_for('annotate', task_id=task.id) }}" class="btn btn-primary btn-sm">Continue →</a>
             <button class="btn btn-success btn-sm" onclick="completeTask({{ task.id }})">Mark Complete</button>
+            {% endif %}
         </div>
     </div>
     {% endfor %}
